@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https: http: data:; connect-src https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; base-uri 'none'; form-action 'none'">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#34A853">
+<meta property="og:title" content="Chekly — список бажань · wishlist">
+<meta property="og:description" content="Оберіть подарунок зі списку · Choose a gift from the wishlist">
+<title>Chekly — Wishlist</title>
+<style>
+  :root { --bg:#fff; --fg:#1c1c1e; --muted:#6e6e73; --accent:#34A853; --accent-fg:#fff; --card:#f5f5f7; --line:#e5e5ea; --img:#fff; --mine:#e8f5ec; --err:#d93025; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#000; --fg:#f5f5f7; --muted:#a1a1a6; --card:#1c1c1e; --line:#2c2c2e; --img:#2c2c2e; --mine:#14301d; --err:#ff6b5e; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust:100%; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px calc(64px + env(safe-area-inset-bottom)); }
+  a { color:var(--accent); }
+  .muted { color:var(--muted); }
+  .brand { font-weight:700; color:var(--accent); text-decoration:none; font-size:15px; letter-spacing:.2px; }
+  header { margin:8px 0 18px; }
+  h1 { font-size:28px; line-height:1.2; margin:10px 0 4px; overflow-wrap:anywhere; }
+  .owner { margin:0; }
+  .event { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; margin:12px 0 0; }
+  .pill { display:inline-block; background:var(--accent); color:var(--accent-fg); border-radius:999px; padding:2px 12px; font-weight:600; font-size:14px; }
+  .pill.past { background:var(--card); color:var(--muted); }
+  .note { background:var(--card); border-radius:14px; padding:12px 16px; margin:14px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .summary { margin:14px 0 0; font-size:14px; }
+  .openapp { display:inline-block; margin-top:10px; font-size:14px; color:var(--muted); text-decoration:none; border-bottom:1px dotted var(--muted); }
+  .grid { display:grid; grid-template-columns:1fr; gap:14px; }
+  @media (min-width:600px) { .grid { grid-template-columns:1fr 1fr; } }
+  .item { background:var(--card); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; border:2px solid transparent; transition:opacity .2s; }
+  .item.taken { opacity:.55; }
+  .item.taken .title { text-decoration:line-through; }
+  .item.mine { border-color:var(--accent); background:var(--mine); }
+  .ph { aspect-ratio:4/3; background:var(--img); display:flex; align-items:center; justify-content:center; font-size:48px; }
+  .ph img { width:100%; height:100%; object-fit:contain; display:block; }
+  .body { padding:12px 14px 14px; display:flex; flex-direction:column; gap:4px; flex:1; }
+  .title { font-weight:600; font-size:17px; line-height:1.3; margin:0; overflow-wrap:anywhere; }
+  .price { font-weight:700; font-size:18px; }
+  .meta { font-size:14px; color:var(--muted); overflow-wrap:anywhere; }
+  .inote { font-size:14px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .actions { margin-top:auto; padding-top:10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .shop { font-size:14px; text-decoration:none; font-weight:500; margin-right:auto; }
+  button { font:inherit; border:0; border-radius:12px; padding:10px 16px; font-weight:600; cursor:pointer; min-height:44px; }
+  button:disabled { opacity:.6; cursor:default; }
+  .primary { background:var(--accent); color:var(--accent-fg); }
+  .secondary { background:transparent; color:var(--accent); border:1.5px solid var(--accent); }
+  .ghost { background:transparent; color:var(--muted); padding:10px 8px; }
+  .badge { font-size:14px; font-weight:600; color:var(--muted); }
+  .item.mine .badge { color:var(--accent); }
+  .nameform { width:100%; display:flex; flex-direction:column; gap:8px; }
+  .nameform label { font-size:14px; font-weight:600; }
+  .nameform .hint { font-size:13px; color:var(--muted); margin:0; }
+  .nameform input { font:inherit; font-size:16px; padding:10px 12px; border-radius:12px; border:1.5px solid var(--line); background:var(--bg); color:var(--fg); width:100%; }
+  .nameform input:focus { outline:none; border-color:var(--accent); }
+  .nameform .row { display:flex; gap:8px; }
+  .state { text-align:center; padding:56px 8px; }
+  .state .big { font-size:52px; line-height:1; }
+  .state h2 { font-size:20px; margin:14px 0 6px; }
+  .spinner { width:36px; height:36px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--accent); margin:0 auto; animation:spin .9s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration:3s; } .item { transition:none; } }
+  footer { margin-top:40px; text-align:center; font-size:14px; }
+  footer a { text-decoration:none; }
+  #toast { position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom)); transform:translateX(-50%); max-width:calc(100% - 32px); width:max-content; background:var(--fg); color:var(--bg); padding:12px 16px; border-radius:12px; font-size:15px; box-shadow:0 6px 24px rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:opacity .2s; z-index:10; }
+  #toast.show { opacity:1; }
+  #toast.error { background:var(--err); color:#fff; }
+</style>
+</head>
+<body>
+<main>
+  <a class="brand" href="./">Chekly</a>
+  <div id="app" aria-live="polite"><div class="state"><div class="spinner" role="status"></div></div></div>
+  <footer class="muted">
+    <span id="f-made"></span> <a href="./">Chekly</a> · <a href="privacy.html" id="f-privacy"></a>
+  </footer>
+</main>
+<div id="toast" role="status" aria-live="assertive"></div>
+<script>
+'use strict';
+(function () {
+  var W = typeof window !== 'undefined' ? window : globalThis;
+
+  // ---------- config ----------
+  var API_KEY = 'AIzaSyBmz-a3vF8750c-xwegrZo5J2yS7BaGHGc';
+  var DOCS = 'https://firestore.googleapis.com/v1/projects/chekly-cfa06/databases/(default)/documents';
+  var AUTH_KEY = 'chekly.wish.auth';
+  var NAME_KEY = 'chekly.wish.name';
+  var REFRESH_MS = 20000;
+
+  // ---------- i18n ----------
+  var DICT = {
+    uk: {
+      loading: 'Завантаження…', wishlist: 'Список бажань', from: 'Список бажань · {name}',
+      notFound: 'Список не знайдено', notFoundHint: 'Перевірте посилання або попросіть надіслати його ще раз.',
+      error: 'Не вдалося завантажити список', errorHint: 'Перевірте інтернет і спробуйте ще раз.', retry: 'Спробувати ще раз',
+      empty: 'У списку поки немає подарунків.', emptyHint: 'Загляньте пізніше — сторінка оновлюється сама.',
+      reserve: 'Я подарую', taken: 'Уже обрали', takenBy: 'Уже обрали · {name}', mine: 'Ви обрали', cancel: 'Скасувати',
+      open: 'Відкрити в магазині', openApp: 'Відкрити в застосунку Chekly',
+      nameLabel: 'Як вас звати?', nameHint: 'Ім’я побачать інші друзі, щоб не подарувати те саме.', namePh: 'Ваше ім’я', confirm: 'Підтвердити', close: 'Закрити',
+      raceLost: 'Ой — цей подарунок щойно обрав хтось інший.', saveError: 'Не вдалося зберегти. Перевірте інтернет і спробуйте ще раз.',
+      reserved: 'Готово! Подарунок за вами.', released: 'Бронювання скасовано.',
+      summary: 'Обрано {n} з {total}', today: 'Сьогодні!', tomorrow: 'Завтра', past: 'Подія вже минула',
+      days: { one: 'Через {n} день', few: 'Через {n} дні', many: 'Через {n} днів', other: 'Через {n} дня' },
+      ownList: 'Це ваш список — бронювання приховані, щоб зберегти сюрприз.', made: 'Створено в', privacy: 'Конфіденційність'
+    },
+    ru: {
+      loading: 'Загрузка…', wishlist: 'Список желаний', from: 'Список желаний · {name}',
+      notFound: 'Список не найден', notFoundHint: 'Проверьте ссылку или попросите прислать её ещё раз.',
+      error: 'Не удалось загрузить список', errorHint: 'Проверьте интернет и попробуйте ещё раз.', retry: 'Повторить',
+      empty: 'В списке пока нет подарков.', emptyHint: 'Загляните позже — страница обновляется сама.',
+      reserve: 'Я подарю', taken: 'Уже выбрали', takenBy: 'Уже выбрали · {name}', mine: 'Вы выбрали', cancel: 'Отменить',
+      open: 'Открыть в магазине', openApp: 'Открыть в приложении Chekly',
+      nameLabel: 'Как вас зовут?', nameHint: 'Имя увидят другие друзья, чтобы не подарить то же самое.', namePh: 'Ваше имя', confirm: 'Подтвердить', close: 'Закрыть',
+      raceLost: 'Упс — этот подарок только что выбрал кто-то другой.', saveError: 'Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.',
+      reserved: 'Готово! Подарок за вами.', released: 'Бронь отменена.',
+      summary: 'Выбрано {n} из {total}', today: 'Сегодня!', tomorrow: 'Завтра', past: 'Событие уже прошло',
+      days: { one: 'Через {n} день', few: 'Через {n} дня', many: 'Через {n} дней', other: 'Через {n} дня' },
+      ownList: 'Это ваш список — брони скрыты, чтобы сохранить сюрприз.', made: 'Сделано в', privacy: 'Конфиденциальность'
+    },
+    en: {
+      loading: 'Loading…', wishlist: 'Wishlist', from: '{name}’s wishlist',
+      notFound: 'Wishlist not found', notFoundHint: 'Check the link or ask for it to be sent again.',
+      error: 'Couldn’t load the wishlist', errorHint: 'Check your connection and try again.', retry: 'Try again',
+      empty: 'No gifts in this list yet.', emptyHint: 'Check back later — this page updates automatically.',
+      reserve: 'I’ll get this', taken: 'Already taken', takenBy: 'Already taken · {name}', mine: 'You’re getting this', cancel: 'Cancel',
+      open: 'View in store', openApp: 'Open in the Chekly app',
+      nameLabel: 'What’s your name?', nameHint: 'Other friends will see it so nobody buys the same gift.', namePh: 'Your name', confirm: 'Confirm', close: 'Close',
+      raceLost: 'Oops — someone else just picked this gift.', saveError: 'Couldn’t save. Check your connection and try again.',
+      reserved: 'Done! This gift is yours.', released: 'Reservation cancelled.',
+      summary: '{n} of {total} taken', today: 'Today!', tomorrow: 'Tomorrow', past: 'This event has passed',
+      days: { one: 'In {n} day', other: 'In {n} days' },
+      ownList: 'This is your list — reservations are hidden to keep the surprise.', made: 'Made with', privacy: 'Privacy'
+    },
+    pl: {
+      loading: 'Ładowanie…', wishlist: 'Lista życzeń', from: 'Lista życzeń · {name}',
+      notFound: 'Nie znaleziono listy', notFoundHint: 'Sprawdź link lub poproś o ponowne przesłanie.',
+      error: 'Nie udało się wczytać listy', errorHint: 'Sprawdź połączenie i spróbuj ponownie.', retry: 'Spróbuj ponownie',
+      empty: 'Na liście nie ma jeszcze prezentów.', emptyHint: 'Zajrzyj później — strona odświeża się sama.',
+      reserve: 'Kupię to', taken: 'Już wybrane', takenBy: 'Już wybrane · {name}', mine: 'Twój wybór', cancel: 'Anuluj',
+      open: 'Zobacz w sklepie', openApp: 'Otwórz w aplikacji Chekly',
+      nameLabel: 'Jak masz na imię?', nameHint: 'Inni znajomi je zobaczą, żeby nie kupić tego samego.', namePh: 'Twoje imię', confirm: 'Potwierdź', close: 'Zamknij',
+      raceLost: 'Ups — ktoś właśnie wybrał ten prezent.', saveError: 'Nie udało się zapisać. Sprawdź połączenie i spróbuj ponownie.',
+      reserved: 'Gotowe! Ten prezent jest Twój.', released: 'Rezerwacja anulowana.',
+      summary: 'Wybrano {n} z {total}', today: 'Dziś!', tomorrow: 'Jutro', past: 'Wydarzenie już minęło',
+      days: { one: 'Za {n} dzień', few: 'Za {n} dni', many: 'Za {n} dni', other: 'Za {n} dnia' },
+      ownList: 'To Twoja lista — rezerwacje są ukryte, by zachować niespodziankę.', made: 'Zrobione w', privacy: 'Prywatność'
+    },
+    de: {
+      loading: 'Wird geladen…', wishlist: 'Wunschliste', from: 'Wunschliste · {name}',
+      notFound: 'Wunschliste nicht gefunden', notFoundHint: 'Prüfe den Link oder bitte darum, ihn erneut zu senden.',
+      error: 'Wunschliste konnte nicht geladen werden', errorHint: 'Prüfe deine Verbindung und versuche es erneut.', retry: 'Erneut versuchen',
+      empty: 'Noch keine Geschenke auf der Liste.', emptyHint: 'Schau später wieder vorbei — die Seite aktualisiert sich selbst.',
+      reserve: 'Ich schenke das', taken: 'Bereits vergeben', takenBy: 'Bereits vergeben · {name}', mine: 'Du schenkst das', cancel: 'Abbrechen',
+      open: 'Im Shop ansehen', openApp: 'In der Chekly-App öffnen',
+      nameLabel: 'Wie heißt du?', nameHint: 'Andere Freunde sehen ihn, damit niemand dasselbe schenkt.', namePh: 'Dein Name', confirm: 'Bestätigen', close: 'Schließen',
+      raceLost: 'Hoppla — jemand anderes hat dieses Geschenk gerade gewählt.', saveError: 'Speichern fehlgeschlagen. Prüfe deine Verbindung und versuche es erneut.',
+      reserved: 'Fertig! Dieses Geschenk gehört dir.', released: 'Reservierung aufgehoben.',
+      summary: '{n} von {total} vergeben', today: 'Heute!', tomorrow: 'Morgen', past: 'Das Ereignis ist vorbei',
+      days: { one: 'In {n} Tag', other: 'In {n} Tagen' },
+      ownList: 'Das ist deine Liste — Reservierungen sind verborgen, damit die Überraschung bleibt.', made: 'Erstellt mit', privacy: 'Datenschutz'
+    }
+  };
+
+  function pickLang(langs) {
+    for (var i = 0; i < langs.length; i++) {
+      var code = String(langs[i] || '').toLowerCase().split('-')[0];
+      if (DICT[code]) return { lang: code, locale: langs[i] };
+    }
+    return { lang: 'en', locale: 'en' };
+  }
+  var nav = W.navigator || {};
+  var LP = pickLang(nav.languages && nav.languages.length ? nav.languages : [nav.language || 'en']);
+  var LANG = LP.lang, LOCALE = LP.locale;
+  var D = DICT[LANG];
+
+  function t(key, vars) {
+    var s = D[key] != null ? D[key] : DICT.en[key];
+    return fill(s, vars);
+  }
+  function fill(s, vars) {
+    return String(s).replace(/\{(\w+)\}/g, function (_, k) { return vars && vars[k] != null ? vars[k] : ''; });
+  }
+  function plural(forms, n) {
+    var cat = 'other';
+    try { cat = new Intl.PluralRules(LOCALE).select(n); } catch (e) { try { cat = new Intl.PluralRules(LANG).select(n); } catch (e2) {} }
+    return fill(forms[cat] || forms.other, { n: n });
+  }
+
+  // ---------- pure helpers ----------
+  function decodeValue(v) {
+    if (!v || typeof v !== 'object') return null;
+    if ('stringValue' in v) return v.stringValue;
+    if ('integerValue' in v) return Number(v.integerValue);
+    if ('doubleValue' in v) return Number(v.doubleValue);
+    if ('booleanValue' in v) return !!v.booleanValue;
+    if ('timestampValue' in v) return v.timestampValue;
+    if ('nullValue' in v) return null;
+    if ('mapValue' in v) return decodeFields((v.mapValue || {}).fields);
+    if ('arrayValue' in v) return ((v.arrayValue || {}).values || []).map(decodeValue);
+    return null;
+  }
+  function decodeFields(fields) {
+    var out = {};
+    for (var k in (fields || {})) out[k] = decodeValue(fields[k]);
+    return out;
+  }
+  function decodeDoc(doc) {
+    var o = decodeFields(doc && doc.fields);
+    o.id = String((doc && doc.name) || '').split('/').pop();
+    return o;
+  }
+  function str(v) { return typeof v === 'string' ? v : ''; }
+
+  function safeUrl(u) {
+    if (typeof u !== 'string' || !u.trim()) return null;
+    try {
+      var p = new URL(u.trim());
+      return (p.protocol === 'http:' || p.protocol === 'https:') ? p.href : null;
+    } catch (e) { return null; }
+  }
+  function hostOf(u) {
+    try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; }
+  }
+  function formatPrice(minor, currency) {
+    var n = Number(minor);
+    if (!isFinite(n) || n <= 0) return '';
+    var whole = n % 100 === 0;
+    var cur = str(currency).toUpperCase() || 'UAH';
+    try {
+      return new Intl.NumberFormat(LOCALE, { style: 'currency', currency: cur, minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 }).format(n / 100);
+    } catch (e) {
+      try { return new Intl.NumberFormat(LOCALE, { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 }).format(n / 100) + ' ' + cur; }
+      catch (e2) { return (n / 100).toFixed(whole ? 0 : 2) + ' ' + cur; }
+    }
+  }
+  function daysUntil(iso, now) {
+    var d = new Date(iso);
+    if (isNaN(d)) return null;
+    now = now || new Date();
+    var a = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    var b = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((a - b) / 86400000);
+  }
+  function countdownText(days) {
+    if (days == null) return '';
+    if (days < 0) return t('past');
+    if (days === 0) return t('today');
+    if (days === 1) return t('tomorrow');
+    return plural(D.days, days);
+  }
+  function formatDate(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    try { return new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' }).format(d); }
+    catch (e) { return d.toDateString(); }
+  }
+  function sortItems(items) {
+    return items.slice().sort(function (a, b) {
+      var ao = typeof a.order === 'number' ? a.order : 1e9, bo = typeof b.order === 'number' ? b.order : 1e9;
+      if (ao !== bo) return ao - bo;
+      return str(a.createdAt) < str(b.createdAt) ? -1 : str(a.createdAt) > str(b.createdAt) ? 1 : 0;
+    });
+  }
+  function validId(id) { return typeof id === 'string' && /^[A-Za-z0-9]{16,64}$/.test(id); }
+  function appLink(id, ua, touchPoints) {
+    ua = ua || '';
+    if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1)) return 'traty://wish/' + id;
+    if (/Android/.test(ua)) return 'chekly://wish/' + id;
+    return null;
+  }
+
+  // ---------- storage (never throws) ----------
+  var mem = {};
+  var store = {
+    get: function (k) { try { var v = W.localStorage.getItem(k); return v == null ? (mem[k] || null) : v; } catch (e) { return mem[k] || null; } },
+    set: function (k, v) { mem[k] = v; try { W.localStorage.setItem(k, v); } catch (e) {} },
+    del: function (k) { delete mem[k]; try { W.localStorage.removeItem(k); } catch (e) {} }
+  };
+
+  // ---------- anonymous auth (REST) ----------
+  var auth = (function () {
+    try { var a = JSON.parse(store.get(AUTH_KEY) || 'null'); return a && a.uid && a.refreshToken ? a : null; } catch (e) { return null; }
+  })();
+  var idToken = null, idExp = 0;
+
+  function saveAuth(uid, refreshToken) {
+    auth = { uid: uid, refreshToken: refreshToken };
+    store.set(AUTH_KEY, JSON.stringify(auth));
+  }
+  function httpError(status, msg) { var e = new Error(msg || ('HTTP ' + status)); e.status = status; return e; }
+
+  function signUp() {
+    return fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + API_KEY, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ returnSecureToken: true })
+    }).then(function (r) {
+      if (!r.ok) throw httpError(r.status, 'signUp');
+      return r.json();
+    }).then(function (j) {
+      saveAuth(j.localId, j.refreshToken);
+      idToken = j.idToken;
+      idExp = Date.now() + (Number(j.expiresIn) || 3600) * 1000 - 60000;
+      return idToken;
+    });
+  }
+  function refreshToken() {
+    return fetch('https://securetoken.googleapis.com/v1/token?key=' + API_KEY, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(auth.refreshToken)
+    }).then(function (r) {
+      if (!r.ok) throw httpError(r.status, 'refresh');
+      return r.json();
+    }).then(function (j) {
+      saveAuth(j.user_id || auth.uid, j.refresh_token || auth.refreshToken);
+      idToken = j.id_token;
+      idExp = Date.now() + (Number(j.expires_in) || 3600) * 1000 - 60000;
+      return idToken;
+    });
+  }
+  var tokenPromise = null;
+  function getToken(force) {
+    if (!force && idToken && Date.now() < idExp) return Promise.resolve(idToken);
+    if (tokenPromise) return tokenPromise;
+    var p;
+    if (auth && auth.refreshToken) {
+      p = refreshToken().catch(function (e) {
+        // 400 = refresh token revoked / user gone -> start a fresh anonymous identity; network errors propagate
+        if (e.status === 400) { store.del(AUTH_KEY); auth = null; return signUp(); }
+        throw e;
+      });
+    } else {
+      p = signUp();
+    }
+    tokenPromise = p.then(function (v) { tokenPromise = null; return v; }, function (e) { tokenPromise = null; throw e; });
+    return tokenPromise;
+  }
+  function myUid() { return auth ? auth.uid : null; }
+
+  // ---------- Firestore REST ----------
+  function getJSON(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (r.status === 404) return null;
+      if (!r.ok) throw httpError(r.status);
+      return r.json();
+    });
+  }
+  function loadList(listId) {
+    var base = DOCS + '/wishlists/' + encodeURIComponent(listId);
+    return getJSON(base).then(function (doc) {
+      if (!doc) return { notFound: true };
+      var list = decodeDoc(doc);
+      var items = [];
+      function page(token) {
+        var url = base + '/items?pageSize=300' + (token ? '&pageToken=' + encodeURIComponent(token) : '');
+        return getJSON(url).then(function (j) {
+          ((j && j.documents) || []).forEach(function (d) { items.push(decodeDoc(d)); });
+          if (j && j.nextPageToken && items.length < 3000) return page(j.nextPageToken);
+        });
+      }
+      return page(null).then(function () { return { list: list, items: sortItems(items) }; });
+    });
+  }
+  function itemUrl(listId, itemId) {
+    return DOCS + '/wishlists/' + encodeURIComponent(listId) + '/items/' + encodeURIComponent(itemId) +
+      '?updateMask.fieldPaths=reservedBy&updateMask.fieldPaths=reservedName&updateMask.fieldPaths=reservedAt&currentDocument.exists=true';
+  }
+  function patchReservation(listId, itemId, makeFields, retried) {
+    return getToken(!!retried).then(function (tok) {
+      return fetch(itemUrl(listId, itemId), {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: makeFields(myUid()) })
+      });
+    }).then(function (r) {
+      if (r.status === 401 && !retried) return patchReservation(listId, itemId, makeFields, true);
+      if (!r.ok) throw httpError(r.status, 'patch');
+      return r.json();
+    });
+  }
+  function reserveItem(listId, itemId, name) {
+    return patchReservation(listId, itemId, function (uid) {
+      return {
+        reservedBy: { stringValue: uid },
+        reservedName: { stringValue: String(name || '').trim().slice(0, 60) },
+        reservedAt: { timestampValue: new Date().toISOString() }
+      };
+    });
+  }
+  function releaseItem(listId, itemId) {
+    return patchReservation(listId, itemId, function () {
+      return { reservedBy: { nullValue: null }, reservedName: { stringValue: '' }, reservedAt: { nullValue: null } };
+    });
+  }
+
+  var api = {
+    DICT: DICT, pickLang: pickLang, decodeDoc: decodeDoc, safeUrl: safeUrl, formatPrice: formatPrice, daysUntil: daysUntil,
+    countdownText: countdownText, plural: plural, sortItems: sortItems, validId: validId, appLink: appLink,
+    loadList: loadList, reserveItem: reserveItem, releaseItem: releaseItem, getToken: getToken, myUid: myUid, store: store,
+    setLang: function (l) { LANG = l; LOCALE = l; D = DICT[l]; }
+  };
+  if (W.__CHEKLY_TEST__) { W.__CHEKLY_TEST__.api = api; return; }
+
+  // ================= UI =================
+  var doc = W.document;
+  var app = doc.getElementById('app');
+  doc.documentElement.lang = LANG;
+  doc.getElementById('f-made').textContent = t('made');
+  doc.getElementById('f-privacy').textContent = t('privacy');
+
+  var listId = null;
+  try { listId = new URLSearchParams(W.location.search).get('id'); } catch (e) {}
+
+  var state = { status: 'loading', list: null, items: [], busy: null, nameFor: null, nameDraft: store.get(NAME_KEY) || '' };
+  var lastSig = '', lastLoad = 0, loading = null;
+
+  function h(tag, attrs) {
+    var el = doc.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      var v = attrs[k];
+      if (v == null || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : String(v));
+    }
+    for (var i = 2; i < arguments.length; i++) {
+      var c = arguments[i];
+      if (c == null || c === false) continue;
+      if (Array.isArray(c)) c.forEach(function (x) { if (x != null && x !== false) el.appendChild(typeof x === 'string' ? doc.createTextNode(x) : x); });
+      else el.appendChild(typeof c === 'string' ? doc.createTextNode(c) : c);
+    }
+    return el;
+  }
+
+  var toastTimer = null;
+  function toast(msg, isError) {
+    var el = doc.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show' + (isError ? ' error' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = isError ? 'error' : ''; }, isError ? 5000 : 3000);
+  }
+
+  function stateView(icon, title, hint, withRetry) {
+    return h('div', { class: 'state' },
+      h('div', { class: 'big', 'aria-hidden': 'true', text: icon }),
+      h('h2', { text: title }),
+      hint ? h('p', { class: 'muted', text: hint }) : null,
+      withRetry ? h('button', { class: 'primary', onclick: function () { state.status = 'loading'; render(true); refresh(true); }, text: t('retry') }) : null);
+  }
+
+  function isOwnerView() {
+    return !!(state.list && myUid() && state.list.ownerUid === myUid() && state.list.hideReservations !== false);
+  }
+
+  function renderHeader() {
+    var L = state.list;
+    var title = str(L.title) || t('wishlist');
+    doc.title = title + ' — Chekly';
+    var ev = null;
+    if (L.eventDate) {
+      var days = daysUntil(L.eventDate);
+      if (days != null) {
+        ev = h('p', { class: 'event' },
+          h('span', { text: formatDate(L.eventDate) }),
+          h('span', { class: 'pill' + (days < 0 ? ' past' : ''), text: countdownText(days) }));
+      }
+    }
+    var taken = state.items.filter(function (i) { return !!i.reservedBy; }).length;
+    var link = appLink(listId, nav.userAgent, nav.maxTouchPoints || 0);
+    return h('header', null,
+      h('h1', { text: title }),
+      str(L.ownerName).trim() ? h('p', { class: 'owner muted', text: t('from', { name: str(L.ownerName).trim() }) }) : null,
+      ev,
+      str(L.note).trim() ? h('p', { class: 'note', text: str(L.note).trim() }) : null,
+      isOwnerView() ? h('p', { class: 'summary muted', text: t('ownList') })
+        : (state.items.length ? h('p', { class: 'summary muted', text: t('summary', { n: taken, total: state.items.length }) }) : null),
+      link ? h('a', { class: 'openapp', href: link, text: t('openApp') + ' ›' }) : null);
+  }
+
+  function renderItem(it) {
+    var uid = myUid();
+    var hide = isOwnerView();
+    var mine = !hide && !!it.reservedBy && it.reservedBy === uid;
+    var taken = !hide && !!it.reservedBy && !mine;
+    var url = safeUrl(it.url), img = safeUrl(it.imageUrl);
+    var store_ = str(it.store).trim() || (url ? hostOf(url) : '');
+    var busy = state.busy === it.id;
+
+    var ph = h('div', { class: 'ph', 'aria-hidden': img ? null : 'true' });
+    if (img) {
+      var im = h('img', { src: img, alt: str(it.title), loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' });
+      im.addEventListener('error', function () { ph.textContent = '🎁'; ph.setAttribute('aria-hidden', 'true'); });
+      ph.appendChild(im);
+    } else ph.textContent = '🎁';
+
+    var actions = h('div', { class: 'actions' });
+    if (state.nameFor === it.id && !taken && !mine) {
+      var input = h('input', { type: 'text', maxlength: '60', autocomplete: 'name', enterkeyhint: 'done', placeholder: t('namePh'), id: 'name-' + it.id });
+      input.value = state.nameDraft;
+      input.addEventListener('input', function () { state.nameDraft = input.value; });
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitName(it.id); } if (e.key === 'Escape') closeName(); });
+      actions.appendChild(h('div', { class: 'nameform' },
+        h('label', { for: 'name-' + it.id, text: t('nameLabel') }),
+        input,
+        h('p', { class: 'hint', text: t('nameHint') }),
+        h('div', { class: 'row' },
+          h('button', { class: 'primary', disabled: busy, onclick: function () { submitName(it.id); }, text: busy ? '…' : t('confirm') }),
+          h('button', { class: 'ghost', disabled: busy, onclick: closeName, text: t('close') }))));
+      setTimeout(function () { try { input.focus(); } catch (e) {} }, 0);
+    } else {
+      if (url) actions.appendChild(h('a', { class: 'shop', href: url, target: '_blank', rel: 'noopener noreferrer', text: t('open') + ' ↗' }));
+      if (mine) {
+        actions.appendChild(h('span', { class: 'badge', text: '✓ ' + t('mine') }));
+        actions.appendChild(h('button', { class: 'secondary', disabled: busy, onclick: function () { doRelease(it.id); }, text: busy ? '…' : t('cancel') }));
+      } else if (taken) {
+        var nm = str(it.reservedName).trim();
+        actions.appendChild(h('span', { class: 'badge', text: nm ? t('takenBy', { name: nm }) : t('taken') }));
+      } else if (!hide) {
+        actions.appendChild(h('button', { class: 'primary', disabled: busy || !!state.busy, onclick: function () { startReserve(it.id); }, text: busy ? '…' : t('reserve') }));
+      }
+    }
+
+    var price = formatPrice(it.priceMinor, it.currency);
+    return h('article', { class: 'item' + (taken ? ' taken' : '') + (mine ? ' mine' : '') },
+      ph,
+      h('div', { class: 'body' },
+        h('h3', { class: 'title', text: str(it.title).trim() || '—' }),
+        price ? h('div', { class: 'price', text: price }) : null,
+        store_ ? h('div', { class: 'meta', text: store_ }) : null,
+        str(it.note).trim() ? h('div', { class: 'inote', text: str(it.note).trim() }) : null,
+        actions));
+  }
+
+  function render(force) {
+    var sig = JSON.stringify([state.status, state.list, state.items, state.busy, state.nameFor, myUid(), LANG]);
+    if (!force && sig === lastSig) return;
+    lastSig = sig;
+    var view;
+    if (state.status === 'loading') view = h('div', { class: 'state' }, h('div', { class: 'spinner', role: 'status', 'aria-label': t('loading') }), h('p', { class: 'muted', text: t('loading') }));
+    else if (state.status === 'notfound') view = stateView('🔍', t('notFound'), t('notFoundHint'));
+    else if (state.status === 'error') view = stateView('⚠️', t('error'), t('errorHint'), true);
+    else {
+      view = h('div', null, renderHeader(),
+        state.items.length ? h('div', { class: 'grid' }, state.items.map(renderItem)) : stateView('🎁', t('empty'), t('emptyHint')));
+    }
+    app.replaceChildren ? app.replaceChildren(view) : (app.textContent = '', app.appendChild(view));
+  }
+
+  function refresh(manual) {
+    if (loading) return manual ? loading.then(function () { return refresh(true); }) : loading;
+    if (!manual && (state.nameFor || state.busy)) return Promise.resolve(); // don't disturb typing / pending writes
+    lastLoad = Date.now();
+    return (loading = loadList(listId).then(function (res) {
+      if (res.notFound) { state.status = 'notfound'; state.list = null; state.items = []; }
+      else { state.status = 'ok'; state.list = res.list; state.items = res.items; }
+    }, function () {
+      if (state.status !== 'ok') state.status = 'error'; // keep showing stale data on transient errors
+    }).then(function () { loading = null; render(); }));
+  }
+
+  function startReserve(itemId) {
+    var name = (store.get(NAME_KEY) || '').trim();
+    if (name) return doReserve(itemId, name);
+    state.nameFor = itemId;
+    render();
+  }
+  function closeName() { state.nameFor = null; render(); }
+  function submitName(itemId) {
+    var name = String(state.nameDraft || '').trim().slice(0, 60);
+    if (!name) { var el = doc.getElementById('name-' + itemId); if (el) el.focus(); return; }
+    store.set(NAME_KEY, name);
+    doReserve(itemId, name);
+  }
+
+  function afterWrite(itemId, ok, okMsg, err) {
+    state.busy = null;
+    state.nameFor = null;
+    return refresh(true).then(function () {
+      if (ok) { toast(okMsg); return; }
+      var it = state.items.filter(function (x) { return x.id === itemId; })[0];
+      if (err && err.status === 403 && it && it.reservedBy && it.reservedBy !== myUid()) toast(t('raceLost'), true);
+      else if (err && err.status === 404) toast(t('raceLost'), true);
+      else toast(t('saveError'), true);
+    });
+  }
+  function doReserve(itemId, name) {
+    state.busy = itemId; render();
+    reserveItem(listId, itemId, name).then(function () { return afterWrite(itemId, true, t('reserved')); },
+      function (e) { return afterWrite(itemId, false, null, e); });
+  }
+  function doRelease(itemId) {
+    state.busy = itemId; render();
+    releaseItem(listId, itemId).then(function () { return afterWrite(itemId, true, t('released')); },
+      function (e) { return afterWrite(itemId, false, null, e); });
+  }
+
+  // ---------- boot ----------
+  if (!validId(listId)) { state.status = 'notfound'; render(true); return; }
+  render(true);
+  refresh(true);
+  // Sign in anonymously in the background so reservations are tied to this browser (uid + refresh token kept in localStorage).
+  getToken(false).then(function () { render(); }, function () {});
+
+  setInterval(function () { if (!doc.hidden) refresh(false); }, REFRESH_MS);
+  function onWake() { if (!doc.hidden && Date.now() - lastLoad > 3000) refresh(false); }
+  W.addEventListener('focus', onWake);
+  doc.addEventListener('visibilitychange', onWake);
+})();
+</script>
+</body>
+</html>
