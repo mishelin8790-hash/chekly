@@ -10,7 +10,8 @@
 <meta name="theme-color" content="#34A853">
 <meta property="og:title" content="Chekly — список бажань · wishlist">
 <meta property="og:description" content="Оберіть подарунок зі списку · Choose a gift from the wishlist">
-<title>Chekly — Wishlist</title>
+<meta name="description" content="Pick a gift from the wishlist">
+<title>Wishlist — Chekly</title>
 <style>
   :root { --bg:#fff; --fg:#1c1c1e; --muted:#6e6e73; --accent:#34A853; --accent-fg:#fff; --card:#f5f5f7; --line:#e5e5ea; --img:#fff; --mine:#e8f5ec; --err:#d93025; }
   @media (prefers-color-scheme: dark) { :root { --bg:#000; --fg:#f5f5f7; --muted:#a1a1a6; --card:#1c1c1e; --line:#2c2c2e; --img:#2c2c2e; --mine:#14301d; --err:#ff6b5e; } }
@@ -43,7 +44,7 @@
   .meta { font-size:14px; color:var(--muted); overflow-wrap:anywhere; }
   .inote { font-size:14px; white-space:pre-wrap; overflow-wrap:anywhere; }
   .actions { margin-top:auto; padding-top:10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  .shop { font-size:14px; text-decoration:none; font-weight:500; margin-right:auto; }
+  .shop { font-size:14px; text-decoration:none; font-weight:500; margin-inline-end:auto; }
   button { font:inherit; border:0; border-radius:12px; padding:10px 16px; font-weight:600; cursor:pointer; min-height:44px; }
   button:disabled { opacity:.6; cursor:default; }
   .primary { background:var(--accent); color:var(--accent-fg); }
@@ -65,7 +66,7 @@
   @media (prefers-reduced-motion: reduce) { .spinner { animation-duration:3s; } .item { transition:none; } }
   footer { margin-top:40px; text-align:center; font-size:14px; }
   footer a { text-decoration:none; }
-  #toast { position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom)); transform:translateX(-50%); max-width:calc(100% - 32px); width:max-content; background:var(--fg); color:var(--bg); padding:12px 16px; border-radius:12px; font-size:15px; box-shadow:0 6px 24px rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:opacity .2s; z-index:10; }
+  #toast { position:fixed; left:50%; text-align:start; bottom:calc(20px + env(safe-area-inset-bottom)); transform:translateX(-50%); max-width:calc(100% - 32px); width:max-content; background:var(--fg); color:var(--bg); padding:12px 16px; border-radius:12px; font-size:15px; box-shadow:0 6px 24px rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:opacity .2s; z-index:10; }
   #toast.show { opacity:1; }
   #toast.error { background:var(--err); color:#fff; }
 </style>
@@ -75,7 +76,7 @@
   <a class="brand" href="./">Chekly</a>
   <div id="app" aria-live="polite"><div class="state"><div class="spinner" role="status"></div></div></div>
   <footer class="muted">
-    <span id="f-made"></span> <a href="./">Chekly</a> · <a href="privacy.html" id="f-privacy"></a>
+    <span id="f-made"><a href="./">Chekly</a></span> · <a href="privacy.html" id="f-privacy"></a>
   </footer>
 </main>
 <div id="toast" role="status" aria-live="assertive"></div>
@@ -92,9 +93,26 @@
   var REFRESH_MS = 20000;
 
   // ---------- i18n ----------
+  // Plural objects (days, summary) are keyed by Intl.PluralRules categories of the language.
+  // {n} may be omitted only in the zero/one/two forms (e.g. Arabic/Hebrew dual: "بعد يومين", "בעוד יומיים").
   var DICT = {
+    en: {
+      loading: 'Loading…', wishlist: 'Wishlist', from: '{name}’s wishlist', metaDesc: 'Pick a gift from the wishlist',
+      notFound: 'Wishlist not found', notFoundHint: 'Check the link or ask for it to be sent again.',
+      error: 'Couldn’t load the wishlist', errorHint: 'Check your connection and try again.', retry: 'Try again',
+      empty: 'No gifts in this list yet.', emptyHint: 'Check back later — this page updates automatically.',
+      reserve: 'I’ll get this', taken: 'Already taken', takenBy: 'Already taken · {name}', mine: 'You’re getting this', cancel: 'Cancel',
+      open: 'View in store', openApp: 'Open in the Chekly app',
+      nameLabel: 'What’s your name?', nameHint: 'Other friends will see it so nobody buys the same gift.', namePh: 'Your name', confirm: 'Confirm', close: 'Close',
+      raceLost: 'Oops — someone else just picked this gift.', saveError: 'Couldn’t save. Check your connection and try again.',
+      reserved: 'Done! This gift is yours to give.', released: 'Reservation cancelled.',
+      summary: { one: '{n} of {total} taken', other: '{n} of {total} taken' },
+      today: 'Today!', tomorrow: 'Tomorrow', past: 'This event has passed',
+      days: { one: 'In {n} day', other: 'In {n} days' },
+      ownList: 'This is your list — reservations are hidden to keep the surprise.', made: 'Made with {app}', privacy: 'Privacy'
+    },
     uk: {
-      loading: 'Завантаження…', wishlist: 'Список бажань', from: 'Список бажань · {name}',
+      loading: 'Завантаження…', wishlist: 'Список бажань', from: 'Список бажань · {name}', metaDesc: 'Оберіть подарунок зі списку бажань',
       notFound: 'Список не знайдено', notFoundHint: 'Перевірте посилання або попросіть надіслати його ще раз.',
       error: 'Не вдалося завантажити список', errorHint: 'Перевірте інтернет і спробуйте ще раз.', retry: 'Спробувати ще раз',
       empty: 'У списку поки немає подарунків.', emptyHint: 'Загляньте пізніше — сторінка оновлюється сама.',
@@ -103,12 +121,13 @@
       nameLabel: 'Як вас звати?', nameHint: 'Ім’я побачать інші друзі, щоб не подарувати те саме.', namePh: 'Ваше ім’я', confirm: 'Підтвердити', close: 'Закрити',
       raceLost: 'Ой — цей подарунок щойно обрав хтось інший.', saveError: 'Не вдалося зберегти. Перевірте інтернет і спробуйте ще раз.',
       reserved: 'Готово! Подарунок за вами.', released: 'Бронювання скасовано.',
-      summary: 'Обрано {n} з {total}', today: 'Сьогодні!', tomorrow: 'Завтра', past: 'Подія вже минула',
+      summary: { one: 'Обрано {n} з {total}', few: 'Обрано {n} з {total}', many: 'Обрано {n} з {total}', other: 'Обрано {n} з {total}' },
+      today: 'Сьогодні!', tomorrow: 'Завтра', past: 'Подія вже минула',
       days: { one: 'Через {n} день', few: 'Через {n} дні', many: 'Через {n} днів', other: 'Через {n} дня' },
-      ownList: 'Це ваш список — бронювання приховані, щоб зберегти сюрприз.', made: 'Створено в', privacy: 'Конфіденційність'
+      ownList: 'Це ваш список — бронювання приховані, щоб зберегти сюрприз.', made: 'Створено в {app}', privacy: 'Конфіденційність'
     },
     ru: {
-      loading: 'Загрузка…', wishlist: 'Список желаний', from: 'Список желаний · {name}',
+      loading: 'Загрузка…', wishlist: 'Список желаний', from: 'Список желаний · {name}', metaDesc: 'Выберите подарок из списка желаний',
       notFound: 'Список не найден', notFoundHint: 'Проверьте ссылку или попросите прислать её ещё раз.',
       error: 'Не удалось загрузить список', errorHint: 'Проверьте интернет и попробуйте ещё раз.', retry: 'Повторить',
       empty: 'В списке пока нет подарков.', emptyHint: 'Загляните позже — страница обновляется сама.',
@@ -117,26 +136,13 @@
       nameLabel: 'Как вас зовут?', nameHint: 'Имя увидят другие друзья, чтобы не подарить то же самое.', namePh: 'Ваше имя', confirm: 'Подтвердить', close: 'Закрыть',
       raceLost: 'Упс — этот подарок только что выбрал кто-то другой.', saveError: 'Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.',
       reserved: 'Готово! Подарок за вами.', released: 'Бронь отменена.',
-      summary: 'Выбрано {n} из {total}', today: 'Сегодня!', tomorrow: 'Завтра', past: 'Событие уже прошло',
+      summary: { one: 'Выбрано {n} из {total}', few: 'Выбрано {n} из {total}', many: 'Выбрано {n} из {total}', other: 'Выбрано {n} из {total}' },
+      today: 'Сегодня!', tomorrow: 'Завтра', past: 'Событие уже прошло',
       days: { one: 'Через {n} день', few: 'Через {n} дня', many: 'Через {n} дней', other: 'Через {n} дня' },
-      ownList: 'Это ваш список — брони скрыты, чтобы сохранить сюрприз.', made: 'Сделано в', privacy: 'Конфиденциальность'
-    },
-    en: {
-      loading: 'Loading…', wishlist: 'Wishlist', from: '{name}’s wishlist',
-      notFound: 'Wishlist not found', notFoundHint: 'Check the link or ask for it to be sent again.',
-      error: 'Couldn’t load the wishlist', errorHint: 'Check your connection and try again.', retry: 'Try again',
-      empty: 'No gifts in this list yet.', emptyHint: 'Check back later — this page updates automatically.',
-      reserve: 'I’ll get this', taken: 'Already taken', takenBy: 'Already taken · {name}', mine: 'You’re getting this', cancel: 'Cancel',
-      open: 'View in store', openApp: 'Open in the Chekly app',
-      nameLabel: 'What’s your name?', nameHint: 'Other friends will see it so nobody buys the same gift.', namePh: 'Your name', confirm: 'Confirm', close: 'Close',
-      raceLost: 'Oops — someone else just picked this gift.', saveError: 'Couldn’t save. Check your connection and try again.',
-      reserved: 'Done! This gift is yours.', released: 'Reservation cancelled.',
-      summary: '{n} of {total} taken', today: 'Today!', tomorrow: 'Tomorrow', past: 'This event has passed',
-      days: { one: 'In {n} day', other: 'In {n} days' },
-      ownList: 'This is your list — reservations are hidden to keep the surprise.', made: 'Made with', privacy: 'Privacy'
+      ownList: 'Это ваш список — брони скрыты, чтобы сохранить сюрприз.', made: 'Сделано в {app}', privacy: 'Конфиденциальность'
     },
     pl: {
-      loading: 'Ładowanie…', wishlist: 'Lista życzeń', from: 'Lista życzeń · {name}',
+      loading: 'Ładowanie…', wishlist: 'Lista życzeń', from: 'Lista życzeń · {name}', metaDesc: 'Wybierz prezent z listy życzeń',
       notFound: 'Nie znaleziono listy', notFoundHint: 'Sprawdź link lub poproś o ponowne przesłanie.',
       error: 'Nie udało się wczytać listy', errorHint: 'Sprawdź połączenie i spróbuj ponownie.', retry: 'Spróbuj ponownie',
       empty: 'Na liście nie ma jeszcze prezentów.', emptyHint: 'Zajrzyj później — strona odświeża się sama.',
@@ -145,12 +151,13 @@
       nameLabel: 'Jak masz na imię?', nameHint: 'Inni znajomi je zobaczą, żeby nie kupić tego samego.', namePh: 'Twoje imię', confirm: 'Potwierdź', close: 'Zamknij',
       raceLost: 'Ups — ktoś właśnie wybrał ten prezent.', saveError: 'Nie udało się zapisać. Sprawdź połączenie i spróbuj ponownie.',
       reserved: 'Gotowe! Ten prezent jest Twój.', released: 'Rezerwacja anulowana.',
-      summary: 'Wybrano {n} z {total}', today: 'Dziś!', tomorrow: 'Jutro', past: 'Wydarzenie już minęło',
+      summary: { one: 'Wybrano {n} z {total}', few: 'Wybrano {n} z {total}', many: 'Wybrano {n} z {total}', other: 'Wybrano {n} z {total}' },
+      today: 'Dziś!', tomorrow: 'Jutro', past: 'Wydarzenie już minęło',
       days: { one: 'Za {n} dzień', few: 'Za {n} dni', many: 'Za {n} dni', other: 'Za {n} dnia' },
-      ownList: 'To Twoja lista — rezerwacje są ukryte, by zachować niespodziankę.', made: 'Zrobione w', privacy: 'Prywatność'
+      ownList: 'To Twoja lista — rezerwacje są ukryte, by zachować niespodziankę.', made: 'Zrobione w {app}', privacy: 'Prywatność'
     },
     de: {
-      loading: 'Wird geladen…', wishlist: 'Wunschliste', from: 'Wunschliste · {name}',
+      loading: 'Wird geladen…', wishlist: 'Wunschliste', from: 'Wunschliste · {name}', metaDesc: 'Such dir ein Geschenk von der Wunschliste aus',
       notFound: 'Wunschliste nicht gefunden', notFoundHint: 'Prüfe den Link oder bitte darum, ihn erneut zu senden.',
       error: 'Wunschliste konnte nicht geladen werden', errorHint: 'Prüfe deine Verbindung und versuche es erneut.', retry: 'Erneut versuchen',
       empty: 'Noch keine Geschenke auf der Liste.', emptyHint: 'Schau später wieder vorbei — die Seite aktualisiert sich selbst.',
@@ -158,17 +165,400 @@
       open: 'Im Shop ansehen', openApp: 'In der Chekly-App öffnen',
       nameLabel: 'Wie heißt du?', nameHint: 'Andere Freunde sehen ihn, damit niemand dasselbe schenkt.', namePh: 'Dein Name', confirm: 'Bestätigen', close: 'Schließen',
       raceLost: 'Hoppla — jemand anderes hat dieses Geschenk gerade gewählt.', saveError: 'Speichern fehlgeschlagen. Prüfe deine Verbindung und versuche es erneut.',
-      reserved: 'Fertig! Dieses Geschenk gehört dir.', released: 'Reservierung aufgehoben.',
-      summary: '{n} von {total} vergeben', today: 'Heute!', tomorrow: 'Morgen', past: 'Das Ereignis ist vorbei',
+      reserved: 'Fertig! Dieses Geschenk übernimmst du.', released: 'Reservierung aufgehoben.',
+      summary: { one: '{n} von {total} vergeben', other: '{n} von {total} vergeben' },
+      today: 'Heute!', tomorrow: 'Morgen', past: 'Das Ereignis ist vorbei',
       days: { one: 'In {n} Tag', other: 'In {n} Tagen' },
-      ownList: 'Das ist deine Liste — Reservierungen sind verborgen, damit die Überraschung bleibt.', made: 'Erstellt mit', privacy: 'Datenschutz'
+      ownList: 'Das ist deine Liste — Reservierungen sind verborgen, damit die Überraschung bleibt.', made: 'Erstellt mit {app}', privacy: 'Datenschutz'
+    },
+    fr: {
+      loading: 'Chargement…', wishlist: 'Liste d’envies', from: 'Liste d’envies de {name}', metaDesc: 'Choisissez un cadeau dans la liste d’envies',
+      notFound: 'Liste introuvable', notFoundHint: 'Vérifiez le lien ou demandez qu’on vous le renvoie.',
+      error: 'Impossible de charger la liste', errorHint: 'Vérifiez votre connexion et réessayez.', retry: 'Réessayer',
+      empty: 'Aucun cadeau dans la liste pour l’instant.', emptyHint: 'Revenez plus tard — la page se met à jour toute seule.',
+      reserve: 'Je l’offre', taken: 'Déjà choisi', takenBy: 'Déjà choisi · {name}', mine: 'Vous l’offrez', cancel: 'Annuler',
+      open: 'Voir en boutique', openApp: 'Ouvrir dans l’app Chekly',
+      nameLabel: 'Comment vous appelez-vous\u00a0?', nameHint: 'Les autres amis le verront, pour éviter d’offrir la même chose.', namePh: 'Votre prénom', confirm: 'Confirmer', close: 'Fermer',
+      raceLost: 'Oups — quelqu’un vient de choisir ce cadeau.', saveError: 'Échec de l’enregistrement. Vérifiez votre connexion et réessayez.',
+      reserved: 'C’est noté\u00a0! Vous offrez ce cadeau.', released: 'Réservation annulée.',
+      summary: { one: '{n} sur {total} choisi', many: '{n} sur {total} choisis', other: '{n} sur {total} choisis' },
+      today: 'Aujourd’hui\u00a0!', tomorrow: 'Demain', past: 'L’événement est passé',
+      days: { one: 'Dans {n} jour', many: 'Dans {n} jours', other: 'Dans {n} jours' },
+      ownList: 'C’est votre liste — les réservations sont masquées pour garder la surprise.', made: 'Créé avec {app}', privacy: 'Confidentialité'
+    },
+    es: {
+      loading: 'Cargando…', wishlist: 'Lista de deseos', from: 'Lista de deseos de {name}', metaDesc: 'Elige un regalo de la lista de deseos',
+      notFound: 'No se encontró la lista', notFoundHint: 'Revisa el enlace o pide que te lo envíen de nuevo.',
+      error: 'No se pudo cargar la lista', errorHint: 'Revisa tu conexión e inténtalo de nuevo.', retry: 'Reintentar',
+      empty: 'Todavía no hay regalos en la lista.', emptyHint: 'Vuelve más tarde: la página se actualiza sola.',
+      reserve: 'Yo lo regalo', taken: 'Ya elegido', takenBy: 'Ya elegido · {name}', mine: 'Tú lo regalas', cancel: 'Cancelar',
+      open: 'Ver en la tienda', openApp: 'Abrir en la app Chekly',
+      nameLabel: '¿Cómo te llamas?', nameHint: 'Los demás amigos lo verán para que nadie regale lo mismo.', namePh: 'Tu nombre', confirm: 'Confirmar', close: 'Cerrar',
+      raceLost: 'Vaya, alguien acaba de elegir este regalo.', saveError: 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.',
+      reserved: '¡Listo! Este regalo es cosa tuya.', released: 'Reserva cancelada.',
+      summary: { one: '{n} de {total} elegido', many: '{n} de {total} elegidos', other: '{n} de {total} elegidos' },
+      today: '¡Hoy!', tomorrow: 'Mañana', past: 'El evento ya pasó',
+      days: { one: 'En {n} día', many: 'En {n} días', other: 'En {n} días' },
+      ownList: 'Es tu lista: las reservas están ocultas para mantener la sorpresa.', made: 'Hecho con {app}', privacy: 'Privacidad'
+    },
+    it: {
+      loading: 'Caricamento…', wishlist: 'Lista dei desideri', from: 'Lista dei desideri di {name}', metaDesc: 'Scegli un regalo dalla lista dei desideri',
+      notFound: 'Lista non trovata', notFoundHint: 'Controlla il link o chiedi di inviartelo di nuovo.',
+      error: 'Impossibile caricare la lista', errorHint: 'Controlla la connessione e riprova.', retry: 'Riprova',
+      empty: 'Per ora non ci sono regali nella lista.', emptyHint: 'Torna più tardi: la pagina si aggiorna da sola.',
+      reserve: 'Lo regalo io', taken: 'Già scelto', takenBy: 'Già scelto · {name}', mine: 'Lo regali tu', cancel: 'Annulla',
+      open: 'Vedi nel negozio', openApp: 'Apri nell’app Chekly',
+      nameLabel: 'Come ti chiami?', nameHint: 'Gli altri amici lo vedranno, così nessuno regala la stessa cosa.', namePh: 'Il tuo nome', confirm: 'Conferma', close: 'Chiudi',
+      raceLost: 'Ops — qualcun altro ha appena scelto questo regalo.', saveError: 'Impossibile salvare. Controlla la connessione e riprova.',
+      reserved: 'Fatto! Questo regalo lo fai tu.', released: 'Prenotazione annullata.',
+      summary: { one: '{n} su {total} scelto', many: '{n} su {total} scelti', other: '{n} su {total} scelti' },
+      today: 'Oggi!', tomorrow: 'Domani', past: 'L’evento è già passato',
+      days: { one: 'Tra {n} giorno', many: 'Tra {n} giorni', other: 'Tra {n} giorni' },
+      ownList: 'È la tua lista: le prenotazioni sono nascoste per non rovinare la sorpresa.', made: 'Creato con {app}', privacy: 'Privacy'
+    },
+    'pt-BR': {
+      loading: 'Carregando…', wishlist: 'Lista de desejos', from: 'Lista de desejos de {name}', metaDesc: 'Escolha um presente da lista de desejos',
+      notFound: 'Lista não encontrada', notFoundHint: 'Confira o link ou peça para enviarem de novo.',
+      error: 'Não foi possível carregar a lista', errorHint: 'Verifique sua conexão e tente novamente.', retry: 'Tentar novamente',
+      empty: 'Ainda não há presentes na lista.', emptyHint: 'Volte mais tarde — a página se atualiza sozinha.',
+      reserve: 'Eu dou este', taken: 'Já escolhido', takenBy: 'Já escolhido · {name}', mine: 'Você vai dar este', cancel: 'Cancelar',
+      open: 'Ver na loja', openApp: 'Abrir no app Chekly',
+      nameLabel: 'Qual é o seu nome?', nameHint: 'Os outros amigos vão ver, para ninguém dar o mesmo presente.', namePh: 'Seu nome', confirm: 'Confirmar', close: 'Fechar',
+      raceLost: 'Ops — alguém acabou de escolher este presente.', saveError: 'Não foi possível salvar. Verifique sua conexão e tente novamente.',
+      reserved: 'Pronto! Este presente é por sua conta.', released: 'Reserva cancelada.',
+      summary: { one: '{n} de {total} escolhido', many: '{n} de {total} escolhidos', other: '{n} de {total} escolhidos' },
+      today: 'Hoje!', tomorrow: 'Amanhã', past: 'O evento já passou',
+      days: { one: 'Em {n} dia', many: 'Em {n} dias', other: 'Em {n} dias' },
+      ownList: 'Esta é a sua lista — as reservas ficam ocultas para manter a surpresa.', made: 'Feito com {app}', privacy: 'Privacidade'
+    },
+    tr: {
+      loading: 'Yükleniyor…', wishlist: 'İstek listesi', from: 'İstek listesi · {name}', metaDesc: 'İstek listesinden bir hediye seçin',
+      notFound: 'Liste bulunamadı', notFoundHint: 'Bağlantıyı kontrol edin veya yeniden gönderilmesini isteyin.',
+      error: 'Liste yüklenemedi', errorHint: 'Bağlantınızı kontrol edip tekrar deneyin.', retry: 'Tekrar dene',
+      empty: 'Listede henüz hediye yok.', emptyHint: 'Daha sonra tekrar bakın — sayfa kendiliğinden güncellenir.',
+      reserve: 'Bunu ben alırım', taken: 'Zaten seçildi', takenBy: 'Zaten seçildi · {name}', mine: 'Bunu siz alıyorsunuz', cancel: 'İptal et',
+      open: 'Mağazada gör', openApp: 'Chekly uygulamasında aç',
+      nameLabel: 'Adınız nedir?', nameHint: 'Kimse aynı hediyeyi almasın diye diğer arkadaşlar adınızı görecek.', namePh: 'Adınız', confirm: 'Onayla', close: 'Kapat',
+      raceLost: 'Hay aksi — bu hediyeyi az önce başka biri seçti.', saveError: 'Kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.',
+      reserved: 'Tamam! Bu hediye sizde.', released: 'Rezervasyon iptal edildi.',
+      summary: { one: '{total} hediyeden {n} tanesi seçildi', other: '{total} hediyeden {n} tanesi seçildi' },
+      today: 'Bugün!', tomorrow: 'Yarın', past: 'Etkinlik geride kaldı',
+      days: { one: '{n} gün sonra', other: '{n} gün sonra' },
+      ownList: 'Bu sizin listeniz — sürpriz bozulmasın diye rezervasyonlar gizlendi.', made: '{app} ile hazırlandı', privacy: 'Gizlilik'
+    },
+    cs: {
+      loading: 'Načítání…', wishlist: 'Seznam přání', from: 'Seznam přání · {name}', metaDesc: 'Vyberte dárek ze seznamu přání',
+      notFound: 'Seznam nebyl nalezen', notFoundHint: 'Zkontrolujte odkaz nebo požádejte o jeho opětovné zaslání.',
+      error: 'Seznam se nepodařilo načíst', errorHint: 'Zkontrolujte připojení a zkuste to znovu.', retry: 'Zkusit znovu',
+      empty: 'Na seznamu zatím nejsou žádné dárky.', emptyHint: 'Podívejte se později — stránka se aktualizuje sama.',
+      reserve: 'Daruji to já', taken: 'Už vybráno', takenBy: 'Už vybráno · {name}', mine: 'Darujete vy', cancel: 'Zrušit',
+      open: 'Zobrazit v obchodě', openApp: 'Otevřít v aplikaci Chekly',
+      nameLabel: 'Jak se jmenujete?', nameHint: 'Ostatní přátelé ho uvidí, aby nikdo nedaroval totéž.', namePh: 'Vaše jméno', confirm: 'Potvrdit', close: 'Zavřít',
+      raceLost: 'Jejda — tento dárek si právě vybral někdo jiný.', saveError: 'Uložení se nezdařilo. Zkontrolujte připojení a zkuste to znovu.',
+      reserved: 'Hotovo! Tento dárek je na vás.', released: 'Rezervace zrušena.',
+      summary: { one: 'Vybráno {n} z {total}', few: 'Vybrány {n} z {total}', many: 'Vybráno {n} z {total}', other: 'Vybráno {n} z {total}' },
+      today: 'Dnes!', tomorrow: 'Zítra', past: 'Událost už proběhla',
+      days: { one: 'Za {n} den', few: 'Za {n} dny', many: 'Za {n} dne', other: 'Za {n} dní' },
+      ownList: 'Tohle je váš seznam — rezervace jsou skryté, aby zůstalo překvapení.', made: 'Vytvořeno v {app}', privacy: 'Soukromí'
+    },
+    ro: {
+      loading: 'Se încarcă…', wishlist: 'Listă de dorințe', from: 'Listă de dorințe · {name}', metaDesc: 'Alege un cadou din lista de dorințe',
+      notFound: 'Lista nu a fost găsită', notFoundHint: 'Verifică linkul sau cere să ți-l trimită din nou.',
+      error: 'Lista nu s-a putut încărca', errorHint: 'Verifică conexiunea și încearcă din nou.', retry: 'Încearcă din nou',
+      empty: 'Încă nu există cadouri în listă.', emptyHint: 'Revino mai târziu — pagina se actualizează singură.',
+      reserve: 'Îl ofer eu', taken: 'Deja ales', takenBy: 'Deja ales · {name}', mine: 'Tu îl oferi', cancel: 'Anulează',
+      open: 'Vezi în magazin', openApp: 'Deschide în aplicația Chekly',
+      nameLabel: 'Cum te numești?', nameHint: 'Ceilalți prieteni îl vor vedea, ca să nu ofere nimeni același cadou.', namePh: 'Numele tău', confirm: 'Confirmă', close: 'Închide',
+      raceLost: 'Hopa — altcineva tocmai a ales acest cadou.', saveError: 'Nu s-a putut salva. Verifică conexiunea și încearcă din nou.',
+      reserved: 'Gata! Acest cadou e de la tine.', released: 'Rezervare anulată.',
+      summary: { one: '{n} din {total} ales', few: '{n} din {total} alese', other: '{n} din {total} alese' },
+      today: 'Azi!', tomorrow: 'Mâine', past: 'Evenimentul a trecut',
+      days: { one: 'Peste {n} zi', few: 'Peste {n} zile', other: 'Peste {n} de zile' },
+      ownList: 'Aceasta e lista ta — rezervările sunt ascunse ca să rămână surpriza.', made: 'Creat cu {app}', privacy: 'Confidențialitate'
+    },
+    nl: {
+      loading: 'Laden…', wishlist: 'Verlanglijst', from: 'Verlanglijst van {name}', metaDesc: 'Kies een cadeau van de verlanglijst',
+      notFound: 'Verlanglijst niet gevonden', notFoundHint: 'Controleer de link of vraag om hem opnieuw te sturen.',
+      error: 'Kan de verlanglijst niet laden', errorHint: 'Controleer je verbinding en probeer het opnieuw.', retry: 'Opnieuw proberen',
+      empty: 'Er staan nog geen cadeaus op de lijst.', emptyHint: 'Kom later terug — de pagina werkt zichzelf bij.',
+      reserve: 'Dit geef ik', taken: 'Al gekozen', takenBy: 'Al gekozen · {name}', mine: 'Jij geeft dit', cancel: 'Annuleren',
+      open: 'Bekijk in winkel', openApp: 'Openen in de Chekly-app',
+      nameLabel: 'Hoe heet je?', nameHint: 'Andere vrienden zien je naam, zodat niemand hetzelfde cadeau geeft.', namePh: 'Je naam', confirm: 'Bevestigen', close: 'Sluiten',
+      raceLost: 'Oeps — iemand anders heeft dit cadeau net gekozen.', saveError: 'Opslaan mislukt. Controleer je verbinding en probeer het opnieuw.',
+      reserved: 'Gelukt! Jij geeft dit cadeau.', released: 'Reservering geannuleerd.',
+      summary: { one: '{n} van {total} gekozen', other: '{n} van {total} gekozen' },
+      today: 'Vandaag!', tomorrow: 'Morgen', past: 'Dit evenement is voorbij',
+      days: { one: 'Over {n} dag', other: 'Over {n} dagen' },
+      ownList: 'Dit is je eigen lijst — reserveringen zijn verborgen om de verrassing te bewaren.', made: 'Gemaakt met {app}', privacy: 'Privacy'
+    },
+    sv: {
+      loading: 'Laddar…', wishlist: 'Önskelista', from: 'Önskelista · {name}', metaDesc: 'Välj en present från önskelistan',
+      notFound: 'Önskelistan hittades inte', notFoundHint: 'Kontrollera länken eller be att få den skickad igen.',
+      error: 'Kunde inte läsa in önskelistan', errorHint: 'Kontrollera anslutningen och försök igen.', retry: 'Försök igen',
+      empty: 'Inga presenter på listan än.', emptyHint: 'Titta in senare — sidan uppdateras automatiskt.',
+      reserve: 'Jag ger den', taken: 'Redan vald', takenBy: 'Redan vald · {name}', mine: 'Du ger den', cancel: 'Avboka',
+      open: 'Visa i butiken', openApp: 'Öppna i Chekly-appen',
+      nameLabel: 'Vad heter du?', nameHint: 'Andra vänner ser det, så att ingen köper samma present.', namePh: 'Ditt namn', confirm: 'Bekräfta', close: 'Stäng',
+      raceLost: 'Hoppsan — någon annan valde precis den här presenten.', saveError: 'Kunde inte spara. Kontrollera anslutningen och försök igen.',
+      reserved: 'Klart! Du ger den här presenten.', released: 'Reservationen är avbokad.',
+      summary: { one: '{n} av {total} vald', other: '{n} av {total} valda' },
+      today: 'I dag!', tomorrow: 'I morgon', past: 'Evenemanget har redan varit',
+      days: { one: 'Om {n} dag', other: 'Om {n} dagar' },
+      ownList: 'Det här är din lista — reservationer är dolda så att överraskningen består.', made: 'Skapad med {app}', privacy: 'Integritet'
+    },
+    nb: {
+      loading: 'Laster inn…', wishlist: 'Ønskeliste', from: 'Ønskeliste · {name}', metaDesc: 'Velg en gave fra ønskelisten',
+      notFound: 'Fant ikke ønskelisten', notFoundHint: 'Sjekk lenken eller be om å få den sendt på nytt.',
+      error: 'Kunne ikke laste inn ønskelisten', errorHint: 'Sjekk tilkoblingen og prøv igjen.', retry: 'Prøv igjen',
+      empty: 'Ingen gaver på listen ennå.', emptyHint: 'Se innom senere — siden oppdateres automatisk.',
+      reserve: 'Jeg gir denne', taken: 'Allerede valgt', takenBy: 'Allerede valgt · {name}', mine: 'Du gir denne', cancel: 'Avbryt',
+      open: 'Se i butikken', openApp: 'Åpne i Chekly-appen',
+      nameLabel: 'Hva heter du?', nameHint: 'Andre venner ser navnet, så ingen kjøper den samme gaven.', namePh: 'Navnet ditt', confirm: 'Bekreft', close: 'Lukk',
+      raceLost: 'Oi — noen andre valgte nettopp denne gaven.', saveError: 'Kunne ikke lagre. Sjekk tilkoblingen og prøv igjen.',
+      reserved: 'Ferdig! Du gir denne gaven.', released: 'Reservasjonen er avbrutt.',
+      summary: { one: '{n} av {total} valgt', other: '{n} av {total} valgt' },
+      today: 'I dag!', tomorrow: 'I morgen', past: 'Arrangementet er over',
+      days: { one: 'Om {n} dag', other: 'Om {n} dager' },
+      ownList: 'Dette er listen din — reservasjoner er skjult for å bevare overraskelsen.', made: 'Laget med {app}', privacy: 'Personvern'
+    },
+    da: {
+      loading: 'Indlæser…', wishlist: 'Ønskeseddel', from: 'Ønskeseddel · {name}', metaDesc: 'Vælg en gave fra ønskesedlen',
+      notFound: 'Ønskesedlen blev ikke fundet', notFoundHint: 'Tjek linket, eller bed om at få det sendt igen.',
+      error: 'Ønskesedlen kunne ikke indlæses', errorHint: 'Tjek din forbindelse, og prøv igen.', retry: 'Prøv igen',
+      empty: 'Der er endnu ingen gaver på listen.', emptyHint: 'Kig forbi senere — siden opdateres automatisk.',
+      reserve: 'Jeg giver den', taken: 'Allerede valgt', takenBy: 'Allerede valgt · {name}', mine: 'Du giver den', cancel: 'Annuller',
+      open: 'Se i butikken', openApp: 'Åbn i Chekly-appen',
+      nameLabel: 'Hvad hedder du?', nameHint: 'Andre venner kan se det, så ingen køber den samme gave.', namePh: 'Dit navn', confirm: 'Bekræft', close: 'Luk',
+      raceLost: 'Ups — en anden har lige valgt denne gave.', saveError: 'Kunne ikke gemme. Tjek din forbindelse, og prøv igen.',
+      reserved: 'Færdig! Du giver denne gave.', released: 'Reservationen er annulleret.',
+      summary: { one: '{n} af {total} valgt', other: '{n} af {total} valgt' },
+      today: 'I dag!', tomorrow: 'I morgen', past: 'Begivenheden er overstået',
+      days: { one: 'Om {n} dag', other: 'Om {n} dage' },
+      ownList: 'Det er din egen liste — reservationer er skjult for at bevare overraskelsen.', made: 'Lavet med {app}', privacy: 'Privatliv'
+    },
+    fi: {
+      loading: 'Ladataan…', wishlist: 'Toivelista', from: 'Toivelista · {name}', metaDesc: 'Valitse lahja toivelistalta',
+      notFound: 'Toivelistaa ei löytynyt', notFoundHint: 'Tarkista linkki tai pyydä lähettämään se uudelleen.',
+      error: 'Toivelistan lataus epäonnistui', errorHint: 'Tarkista yhteys ja yritä uudelleen.', retry: 'Yritä uudelleen',
+      empty: 'Listalla ei ole vielä lahjoja.', emptyHint: 'Katso myöhemmin uudelleen — sivu päivittyy itsestään.',
+      reserve: 'Minä annan tämän', taken: 'Jo valittu', takenBy: 'Jo valittu · {name}', mine: 'Sinä annat tämän', cancel: 'Peru',
+      open: 'Katso kaupassa', openApp: 'Avaa Chekly-sovelluksessa',
+      nameLabel: 'Mikä nimesi on?', nameHint: 'Muut ystävät näkevät sen, jottei kukaan osta samaa lahjaa.', namePh: 'Nimesi', confirm: 'Vahvista', close: 'Sulje',
+      raceLost: 'Hups — joku muu valitsi juuri tämän lahjan.', saveError: 'Tallennus epäonnistui. Tarkista yhteys ja yritä uudelleen.',
+      reserved: 'Valmista! Sinä annat tämän lahjan.', released: 'Varaus peruttu.',
+      summary: { one: '{n}/{total} valittu', other: '{n}/{total} valittu' },
+      today: 'Tänään!', tomorrow: 'Huomenna', past: 'Tapahtuma on jo ohi',
+      days: { one: '{n} päivän päästä', other: '{n} päivän päästä' },
+      ownList: 'Tämä on oma listasi — varaukset on piilotettu, jotta yllätys säilyy.', made: 'Tehty {app}-sovelluksella', privacy: 'Tietosuoja'
+    },
+    hu: {
+      loading: 'Betöltés…', wishlist: 'Kívánságlista', from: '{name} kívánságlistája', metaDesc: 'Válasszon ajándékot a kívánságlistáról',
+      notFound: 'A lista nem található', notFoundHint: 'Ellenőrizze a linket, vagy kérje, hogy küldjék el újra.',
+      error: 'Nem sikerült betölteni a listát', errorHint: 'Ellenőrizze a kapcsolatot, és próbálja újra.', retry: 'Újra',
+      empty: 'A listán még nincs ajándék.', emptyHint: 'Nézzen vissza később — az oldal magától frissül.',
+      reserve: 'Ezt én adom', taken: 'Már kiválasztották', takenBy: 'Már kiválasztotta · {name}', mine: 'Ezt Ön adja', cancel: 'Visszavonás',
+      open: 'Megnézem a boltban', openApp: 'Megnyitás a Chekly appban',
+      nameLabel: 'Mi a neve?', nameHint: 'A többi barát is látni fogja, így senki sem vesz ugyanolyan ajándékot.', namePh: 'Az Ön neve', confirm: 'Megerősítés', close: 'Bezárás',
+      raceLost: 'Hoppá — ezt az ajándékot épp most választotta ki valaki más.', saveError: 'Nem sikerült menteni. Ellenőrizze a kapcsolatot, és próbálja újra.',
+      reserved: 'Kész! Ezt az ajándékot Ön adja.', released: 'Foglalás visszavonva.',
+      summary: { one: '{n} / {total} kiválasztva', other: '{n} / {total} kiválasztva' },
+      today: 'Ma!', tomorrow: 'Holnap', past: 'Az esemény már elmúlt',
+      days: { one: '{n} nap múlva', other: '{n} nap múlva' },
+      ownList: 'Ez az Ön listája — a foglalások rejtve vannak, hogy megmaradjon a meglepetés.', made: 'Készült: {app}', privacy: 'Adatvédelem'
+    },
+    el: {
+      loading: 'Φόρτωση…', wishlist: 'Λίστα ευχών', from: 'Λίστα ευχών · {name}', metaDesc: 'Επιλέξτε ένα δώρο από τη λίστα ευχών',
+      notFound: 'Η λίστα δεν βρέθηκε', notFoundHint: 'Ελέγξτε τον σύνδεσμο ή ζητήστε να σας τον στείλουν ξανά.',
+      error: 'Δεν ήταν δυνατή η φόρτωση της λίστας', errorHint: 'Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.', retry: 'Δοκιμάστε ξανά',
+      empty: 'Δεν υπάρχουν ακόμη δώρα στη λίστα.', emptyHint: 'Ελάτε ξανά αργότερα — η σελίδα ενημερώνεται αυτόματα.',
+      reserve: 'Θα το χαρίσω εγώ', taken: 'Έχει ήδη επιλεγεί', takenBy: 'Έχει ήδη επιλεγεί · {name}', mine: 'Το χαρίζετε εσείς', cancel: 'Ακύρωση',
+      open: 'Προβολή στο κατάστημα', openApp: 'Άνοιγμα στην εφαρμογή Chekly',
+      nameLabel: 'Πώς σας λένε;', nameHint: 'Οι άλλοι φίλοι θα το δουν, ώστε να μην κάνει κανείς το ίδιο δώρο.', namePh: 'Το όνομά σας', confirm: 'Επιβεβαίωση', close: 'Κλείσιμο',
+      raceLost: 'Ωχ — κάποιος άλλος μόλις επέλεξε αυτό το δώρο.', saveError: 'Η αποθήκευση απέτυχε. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.',
+      reserved: 'Έγινε! Αυτό το δώρο το αναλαμβάνετε εσείς.', released: 'Η κράτηση ακυρώθηκε.',
+      summary: { one: 'Επιλέχθηκε {n} από {total}', other: 'Επιλέχθηκαν {n} από {total}' },
+      today: 'Σήμερα!', tomorrow: 'Αύριο', past: 'Η εκδήλωση έχει περάσει',
+      days: { one: 'Σε {n} ημέρα', other: 'Σε {n} ημέρες' },
+      ownList: 'Αυτή είναι η λίστα σας — οι κρατήσεις είναι κρυφές για να μείνει η έκπληξη.', made: 'Δημιουργήθηκε με το {app}', privacy: 'Απόρρητο'
+    },
+    ja: {
+      loading: '読み込み中…', wishlist: 'ほしいものリスト', from: '{name}さんのほしいものリスト', metaDesc: 'ほしいものリストからプレゼントを選びましょう',
+      notFound: 'リストが見つかりません', notFoundHint: 'リンクを確認するか、もう一度送ってもらってください。',
+      error: 'リストを読み込めませんでした', errorHint: '接続を確認して、もう一度お試しください。', retry: '再試行',
+      empty: 'リストにはまだギフトがありません。', emptyHint: 'あとでもう一度ご覧ください。ページは自動で更新されます。',
+      reserve: '私が贈ります', taken: '選択済み', takenBy: '選択済み · {name}', mine: 'あなたが贈ります', cancel: 'キャンセル',
+      open: 'ストアで見る', openApp: 'Chekly アプリで開く',
+      nameLabel: 'お名前は？', nameHint: '同じギフトが重ならないよう、ほかの友だちにも表示されます。', namePh: 'お名前', confirm: '確定', close: '閉じる',
+      raceLost: 'おっと、このギフトはたった今ほかの人が選びました。', saveError: '保存できませんでした。接続を確認して、もう一度お試しください。',
+      reserved: '完了！このギフトはあなたが贈ります。', released: '予約を取り消しました。',
+      summary: { other: '{total}個中{n}個が選択済み' },
+      today: '今日！', tomorrow: '明日', past: 'イベントは終了しました',
+      days: { other: 'あと{n}日' },
+      ownList: 'これはあなたのリストです。サプライズのため、予約状況は表示されません。', made: '{app} で作成', privacy: 'プライバシー'
+    },
+    ko: {
+      loading: '불러오는 중…', wishlist: '위시리스트', from: '{name}님의 위시리스트', metaDesc: '위시리스트에서 선물을 골라 보세요',
+      notFound: '리스트를 찾을 수 없습니다', notFoundHint: '링크를 확인하거나 다시 보내 달라고 요청하세요.',
+      error: '리스트를 불러오지 못했습니다', errorHint: '연결 상태를 확인하고 다시 시도하세요.', retry: '다시 시도',
+      empty: '아직 리스트에 선물이 없습니다.', emptyHint: '나중에 다시 확인하세요. 페이지는 자동으로 새로고침됩니다.',
+      reserve: '제가 선물할게요', taken: '이미 선택됨', takenBy: '이미 선택됨 · {name}', mine: '내가 선물해요', cancel: '취소',
+      open: '스토어에서 보기', openApp: 'Chekly 앱에서 열기',
+      nameLabel: '이름이 무엇인가요?', nameHint: '같은 선물을 사지 않도록 다른 친구들에게 이름이 표시됩니다.', namePh: '이름', confirm: '확인', close: '닫기',
+      raceLost: '앗 — 방금 다른 사람이 이 선물을 선택했어요.', saveError: '저장하지 못했습니다. 연결 상태를 확인하고 다시 시도하세요.',
+      reserved: '완료! 이 선물은 내가 준비해요.', released: '예약이 취소되었습니다.',
+      summary: { other: '{total}개 중 {n}개 선택됨' },
+      today: '오늘!', tomorrow: '내일', past: '이벤트가 지났습니다',
+      days: { other: '{n}일 남음' },
+      ownList: '내 리스트입니다 — 깜짝 선물을 위해 예약 현황은 숨겨져 있어요.', made: '{app}로 제작', privacy: '개인정보 보호'
+    },
+    'zh-Hans': {
+      loading: '加载中…', wishlist: '心愿单', from: '{name}的心愿单', metaDesc: '从心愿单中挑选一份礼物',
+      notFound: '未找到心愿单', notFoundHint: '请检查链接，或请对方重新发送。',
+      error: '无法加载心愿单', errorHint: '请检查网络连接后重试。', retry: '重试',
+      empty: '心愿单里还没有礼物。', emptyHint: '稍后再来看看——页面会自动更新。',
+      reserve: '我来送', taken: '已被选走', takenBy: '已被选走 · {name}', mine: '由你来送', cancel: '取消',
+      open: '去商店查看', openApp: '在 Chekly App 中打开',
+      nameLabel: '你叫什么名字？', nameHint: '其他朋友会看到你的名字，避免送重复的礼物。', namePh: '你的名字', confirm: '确认', close: '关闭',
+      raceLost: '哎呀——这份礼物刚刚被别人选走了。', saveError: '保存失败。请检查网络连接后重试。',
+      reserved: '好了！这份礼物由你来送。', released: '已取消预订。',
+      summary: { other: '已选 {n} 件，共 {total} 件' },
+      today: '就是今天！', tomorrow: '明天', past: '活动已结束',
+      days: { other: '还有 {n} 天' },
+      ownList: '这是你自己的心愿单——为了保留惊喜，预订情况已隐藏。', made: '由 {app} 制作', privacy: '隐私'
+    },
+    'zh-Hant': {
+      loading: '載入中…', wishlist: '願望清單', from: '{name}的願望清單', metaDesc: '從願望清單中挑選一份禮物',
+      notFound: '找不到願望清單', notFoundHint: '請檢查連結，或請對方重新傳送。',
+      error: '無法載入願望清單', errorHint: '請檢查網路連線後再試一次。', retry: '重試',
+      empty: '願望清單裡還沒有禮物。', emptyHint: '稍後再來看看——頁面會自動更新。',
+      reserve: '我來送', taken: '已被選走', takenBy: '已被選走 · {name}', mine: '由你來送', cancel: '取消',
+      open: '前往商店查看', openApp: '在 Chekly App 中開啟',
+      nameLabel: '你叫什麼名字？', nameHint: '其他朋友會看到你的名字，避免送重複的禮物。', namePh: '你的名字', confirm: '確認', close: '關閉',
+      raceLost: '哎呀——這份禮物剛剛被別人選走了。', saveError: '儲存失敗。請檢查網路連線後再試一次。',
+      reserved: '完成！這份禮物由你來送。', released: '已取消預訂。',
+      summary: { other: '已選 {n} 件，共 {total} 件' },
+      today: '就是今天！', tomorrow: '明天', past: '活動已結束',
+      days: { other: '還有 {n} 天' },
+      ownList: '這是你自己的願望清單——為了保留驚喜，預訂狀況已隱藏。', made: '由 {app} 製作', privacy: '隱私權'
+    },
+    ar: {
+      loading: 'جارٍ التحميل…', wishlist: 'قائمة الأمنيات', from: 'قائمة أمنيات {name}', metaDesc: 'اختر هدية من قائمة الأمنيات',
+      notFound: 'لم يتم العثور على القائمة', notFoundHint: 'تحقق من الرابط أو اطلب إرساله مرة أخرى.',
+      error: 'تعذّر تحميل القائمة', errorHint: 'تحقق من اتصالك بالإنترنت وحاول مرة أخرى.', retry: 'إعادة المحاولة',
+      empty: 'لا توجد هدايا في القائمة بعد.', emptyHint: 'عُد لاحقًا — تتحدّث الصفحة تلقائيًا.',
+      reserve: 'سأهديها أنا', taken: 'تم اختيارها', takenBy: 'تم اختيارها · {name}', mine: 'ستهديها أنت', cancel: 'إلغاء',
+      open: 'عرض في المتجر', openApp: 'فتح في تطبيق Chekly',
+      nameLabel: 'ما اسمك؟', nameHint: 'سيراه الأصدقاء الآخرون حتى لا يهدي أحد الهدية نفسها.', namePh: 'اسمك', confirm: 'تأكيد', close: 'إغلاق',
+      raceLost: 'عذرًا — اختار شخص آخر هذه الهدية للتو.', saveError: 'تعذّر الحفظ. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
+      reserved: 'تم! أنت من سيهدي هذه الهدية.', released: 'تم إلغاء الحجز.',
+      summary: {
+        zero: 'لم يتم اختيار أي هدية من {total}', one: 'تم اختيار هدية واحدة من {total}', two: 'تم اختيار هديتين من {total}',
+        few: 'تم اختيار {n} هدايا من {total}', many: 'تم اختيار {n} هدية من {total}', other: 'تم اختيار {n} هدية من {total}'
+      },
+      today: 'اليوم!', tomorrow: 'غدًا', past: 'انتهت المناسبة',
+      days: { zero: 'بعد {n} يوم', one: 'بعد يوم واحد', two: 'بعد يومين', few: 'بعد {n} أيام', many: 'بعد {n} يومًا', other: 'بعد {n} يوم' },
+      ownList: 'هذه قائمتك — الحجوزات مخفية للحفاظ على المفاجأة.', made: 'صُنع باستخدام {app}', privacy: 'الخصوصية'
+    },
+    he: {
+      loading: 'טוען…', wishlist: 'רשימת משאלות', from: 'רשימת המשאלות של {name}', metaDesc: 'בחרו מתנה מרשימת המשאלות',
+      notFound: 'הרשימה לא נמצאה', notFoundHint: 'בדקו את הקישור או בקשו שישלחו אותו שוב.',
+      error: 'לא ניתן לטעון את הרשימה', errorHint: 'בדקו את החיבור ונסו שוב.', retry: 'לנסות שוב',
+      empty: 'אין עדיין מתנות ברשימה.', emptyHint: 'חזרו מאוחר יותר — הדף מתעדכן לבד.',
+      reserve: 'אני אקנה את זה', taken: 'כבר נבחר', takenBy: 'כבר נבחר · {name}', mine: 'המתנה הזאת עליכם', cancel: 'ביטול',
+      open: 'צפייה בחנות', openApp: 'פתיחה באפליקציית Chekly',
+      nameLabel: 'איך קוראים לכם?', nameHint: 'שאר החברים יראו אותו, כדי שאף אחד לא יקנה את אותה מתנה.', namePh: 'השם שלכם', confirm: 'אישור', close: 'סגירה',
+      raceLost: 'אופס — מישהו אחר בחר עכשיו את המתנה הזאת.', saveError: 'השמירה נכשלה. בדקו את החיבור ונסו שוב.',
+      reserved: 'בוצע! המתנה הזאת עליכם.', released: 'ההזמנה בוטלה.',
+      summary: { one: 'נבחרה מתנה אחת מתוך {total}', two: 'נבחרו {n} מתוך {total}', other: 'נבחרו {n} מתוך {total}' },
+      today: 'היום!', tomorrow: 'מחר', past: 'האירוע כבר עבר',
+      days: { one: 'בעוד יום אחד', two: 'בעוד יומיים', other: 'בעוד {n} ימים' },
+      ownList: 'זו הרשימה שלכם — ההזמנות מוסתרות כדי לשמור על ההפתעה.', made: 'נוצר עם {app}', privacy: 'פרטיות'
+    },
+    hi: {
+      loading: 'लोड हो रहा है…', wishlist: 'विशलिस्ट', from: '{name} की विशलिस्ट', metaDesc: 'विशलिस्ट से कोई उपहार चुनें',
+      notFound: 'सूची नहीं मिली', notFoundHint: 'लिंक जाँचें या इसे दोबारा भेजने के लिए कहें।',
+      error: 'सूची लोड नहीं हो सकी', errorHint: 'अपना कनेक्शन जाँचें और फिर कोशिश करें।', retry: 'फिर कोशिश करें',
+      empty: 'सूची में अभी कोई उपहार नहीं है।', emptyHint: 'बाद में फिर देखें — पेज अपने आप अपडेट होता है।',
+      reserve: 'यह मेरी ओर से', taken: 'पहले ही चुना जा चुका', takenBy: 'पहले ही चुना जा चुका · {name}', mine: 'यह आपकी ओर से', cancel: 'रद्द करें',
+      open: 'स्टोर में देखें', openApp: 'Chekly ऐप में खोलें',
+      nameLabel: 'आपका नाम क्या है?', nameHint: 'बाकी दोस्त इसे देखेंगे, ताकि कोई एक जैसा उपहार न दे।', namePh: 'आपका नाम', confirm: 'पुष्टि करें', close: 'बंद करें',
+      raceLost: 'ओह — यह उपहार अभी-अभी किसी और ने चुन लिया।', saveError: 'सहेजा नहीं जा सका। अपना कनेक्शन जाँचें और फिर कोशिश करें।',
+      reserved: 'हो गया! यह उपहार आपकी ओर से है।', released: 'आरक्षण रद्द कर दिया गया।',
+      summary: { one: '{total} में से {n} चुना गया', other: '{total} में से {n} चुने गए' },
+      today: 'आज!', tomorrow: 'कल', past: 'यह कार्यक्रम बीत चुका है',
+      days: { one: '{n} दिन बाद', other: '{n} दिन बाद' },
+      ownList: 'यह आपकी अपनी सूची है — सरप्राइज़ बनाए रखने के लिए आरक्षण छिपे हुए हैं।', made: '{app} से बनाया गया', privacy: 'गोपनीयता'
+    },
+    id: {
+      loading: 'Memuat…', wishlist: 'Daftar keinginan', from: 'Daftar keinginan {name}', metaDesc: 'Pilih hadiah dari daftar keinginan',
+      notFound: 'Daftar tidak ditemukan', notFoundHint: 'Periksa tautannya atau minta agar dikirim ulang.',
+      error: 'Gagal memuat daftar', errorHint: 'Periksa koneksi Anda dan coba lagi.', retry: 'Coba lagi',
+      empty: 'Belum ada hadiah di daftar ini.', emptyHint: 'Kembali lagi nanti — halaman ini diperbarui otomatis.',
+      reserve: 'Saya yang beri', taken: 'Sudah dipilih', takenBy: 'Sudah dipilih · {name}', mine: 'Anda yang memberi', cancel: 'Batal',
+      open: 'Lihat di toko', openApp: 'Buka di aplikasi Chekly',
+      nameLabel: 'Siapa nama Anda?', nameHint: 'Teman lain akan melihatnya agar tidak ada yang memberi hadiah yang sama.', namePh: 'Nama Anda', confirm: 'Konfirmasi', close: 'Tutup',
+      raceLost: 'Ups — orang lain baru saja memilih hadiah ini.', saveError: 'Gagal menyimpan. Periksa koneksi Anda dan coba lagi.',
+      reserved: 'Beres! Hadiah ini dari Anda.', released: 'Reservasi dibatalkan.',
+      summary: { other: '{n} dari {total} sudah dipilih' },
+      today: 'Hari ini!', tomorrow: 'Besok', past: 'Acara sudah lewat',
+      days: { other: '{n} hari lagi' },
+      ownList: 'Ini daftar Anda sendiri — reservasi disembunyikan agar tetap jadi kejutan.', made: 'Dibuat dengan {app}', privacy: 'Privasi'
+    },
+    vi: {
+      loading: 'Đang tải…', wishlist: 'Danh sách mong muốn', from: 'Danh sách mong muốn của {name}', metaDesc: 'Chọn một món quà từ danh sách mong muốn',
+      notFound: 'Không tìm thấy danh sách', notFoundHint: 'Hãy kiểm tra liên kết hoặc nhờ gửi lại.',
+      error: 'Không tải được danh sách', errorHint: 'Hãy kiểm tra kết nối và thử lại.', retry: 'Thử lại',
+      empty: 'Danh sách chưa có món quà nào.', emptyHint: 'Hãy quay lại sau — trang sẽ tự cập nhật.',
+      reserve: 'Mình sẽ tặng', taken: 'Đã được chọn', takenBy: 'Đã được chọn · {name}', mine: 'Bạn sẽ tặng món này', cancel: 'Hủy',
+      open: 'Xem ở cửa hàng', openApp: 'Mở trong ứng dụng Chekly',
+      nameLabel: 'Bạn tên là gì?', nameHint: 'Những người bạn khác sẽ thấy tên này để không ai tặng trùng quà.', namePh: 'Tên của bạn', confirm: 'Xác nhận', close: 'Đóng',
+      raceLost: 'Ôi — ai đó vừa chọn món quà này.', saveError: 'Không lưu được. Hãy kiểm tra kết nối và thử lại.',
+      reserved: 'Xong! Bạn sẽ tặng món quà này.', released: 'Đã hủy giữ quà.',
+      summary: { other: 'Đã chọn {n}/{total}' },
+      today: 'Hôm nay!', tomorrow: 'Ngày mai', past: 'Sự kiện đã qua',
+      days: { other: 'Còn {n} ngày' },
+      ownList: 'Đây là danh sách của bạn — thông tin giữ quà được ẩn để giữ bất ngờ.', made: 'Tạo bằng {app}', privacy: 'Quyền riêng tư'
+    },
+    th: {
+      loading: 'กำลังโหลด…', wishlist: 'รายการสิ่งที่อยากได้', from: 'รายการสิ่งที่อยากได้ของ {name}', metaDesc: 'เลือกของขวัญจากรายการสิ่งที่อยากได้',
+      notFound: 'ไม่พบรายการ', notFoundHint: 'ตรวจสอบลิงก์ หรือขอให้ส่งมาใหม่อีกครั้ง',
+      error: 'โหลดรายการไม่สำเร็จ', errorHint: 'ตรวจสอบการเชื่อมต่อแล้วลองใหม่อีกครั้ง', retry: 'ลองใหม่',
+      empty: 'ยังไม่มีของขวัญในรายการ', emptyHint: 'แวะมาดูใหม่ภายหลัง — หน้านี้อัปเดตอัตโนมัติ',
+      reserve: 'ฉันจะให้ชิ้นนี้', taken: 'มีคนเลือกแล้ว', takenBy: 'มีคนเลือกแล้ว · {name}', mine: 'คุณจะให้ชิ้นนี้', cancel: 'ยกเลิก',
+      open: 'ดูในร้านค้า', openApp: 'เปิดในแอป Chekly',
+      nameLabel: 'คุณชื่ออะไร', nameHint: 'เพื่อนคนอื่นจะเห็นชื่อนี้ จะได้ไม่ให้ของขวัญซ้ำกัน', namePh: 'ชื่อของคุณ', confirm: 'ยืนยัน', close: 'ปิด',
+      raceLost: 'อุ๊ย — มีคนเพิ่งเลือกของขวัญชิ้นนี้ไป', saveError: 'บันทึกไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองใหม่อีกครั้ง',
+      reserved: 'เรียบร้อย! คุณจะเป็นคนให้ของขวัญชิ้นนี้', released: 'ยกเลิกการจองแล้ว',
+      summary: { other: 'เลือกแล้ว {n} จาก {total}' },
+      today: 'วันนี้!', tomorrow: 'พรุ่งนี้', past: 'งานผ่านไปแล้ว',
+      days: { other: 'อีก {n} วัน' },
+      ownList: 'นี่คือรายการของคุณเอง — การจองถูกซ่อนไว้เพื่อรักษาความเซอร์ไพรส์', made: 'สร้างด้วย {app}', privacy: 'ความเป็นส่วนตัว'
     }
   };
+  var RTL = { ar: 1, he: 1 };
 
+  // Match navigator.languages in order: full tag first, then base language (with legacy/alias codes); fallback en.
+  var ALIAS = { pt: 'pt-BR', no: 'nb', nn: 'nb', nb: 'nb', iw: 'he', 'in': 'id' };
+  function langFor(tag) {
+    var parts = String(tag || '').replace(/_/g, '-').toLowerCase().split('-');
+    var base = parts[0];
+    if (!base || base === '*') return null;
+    for (var k in DICT) if (k.toLowerCase() === parts.join('-')) return k;
+    if (base === 'zh') {
+      if (parts.indexOf('hant') > 0) return 'zh-Hant';
+      if (parts.indexOf('hans') > 0) return 'zh-Hans';
+      return /^(tw|hk|mo)$/.test(parts[1] || '') ? 'zh-Hant' : 'zh-Hans';
+    }
+    if (ALIAS[base]) return ALIAS[base];
+    return DICT[base] ? base : null;
+  }
   function pickLang(langs) {
-    for (var i = 0; i < langs.length; i++) {
-      var code = String(langs[i] || '').toLowerCase().split('-')[0];
-      if (DICT[code]) return { lang: code, locale: langs[i] };
+    for (var i = 0; i < (langs || []).length; i++) {
+      var lang = langFor(langs[i]);
+      if (!lang) continue;
+      var locale = lang;
+      try { locale = Intl.getCanonicalLocales(String(langs[i]).replace(/_/g, '-'))[0] || lang; } catch (e) {}
+      return { lang: lang, locale: locale };
     }
     return { lang: 'en', locale: 'en' };
   }
@@ -184,11 +574,22 @@
   function fill(s, vars) {
     return String(s).replace(/\{(\w+)\}/g, function (_, k) { return vars && vars[k] != null ? vars[k] : ''; });
   }
-  function plural(forms, n) {
-    var cat = 'other';
-    try { cat = new Intl.PluralRules(LOCALE).select(n); } catch (e) { try { cat = new Intl.PluralRules(LANG).select(n); } catch (e2) {} }
-    return fill(forms[cat] || forms.other, { n: n });
+  // Unicode isolation so user names (any script) don't scramble surrounding text, esp. in RTL.
+  function iso(s) { return '\u2068' + s + '\u2069'; }
+  function fmtNum(n) {
+    try { return new Intl.NumberFormat(LOCALE).format(n); } catch (e) { try { return new Intl.NumberFormat(LANG).format(n); } catch (e2) { return String(n); } }
   }
+  function pluralCat(n, lang) {
+    try { return new Intl.PluralRules(lang || LANG).select(n); } catch (e) { return 'other'; }
+  }
+  function plural(forms, n, vars) {
+    if (typeof forms === 'string') forms = { other: forms };
+    var cat = pluralCat(n);
+    var v = { n: fmtNum(n) };
+    for (var k in (vars || {})) v[k] = vars[k];
+    return fill(forms[cat] != null ? forms[cat] : forms.other, v);
+  }
+  function pk(key) { return D[key] != null ? D[key] : DICT.en[key]; }
 
   // ---------- pure helpers ----------
   function decodeValue(v) {
@@ -250,8 +651,9 @@
     if (days < 0) return t('past');
     if (days === 0) return t('today');
     if (days === 1) return t('tomorrow');
-    return plural(D.days, days);
+    return plural(pk('days'), days);
   }
+  function summaryText(n, total) { return plural(pk('summary'), n, { total: fmtNum(total) }); }
   function formatDate(iso) {
     var d = new Date(iso);
     if (isNaN(d)) return '';
@@ -396,10 +798,11 @@
   }
 
   var api = {
-    DICT: DICT, pickLang: pickLang, decodeDoc: decodeDoc, safeUrl: safeUrl, formatPrice: formatPrice, daysUntil: daysUntil,
-    countdownText: countdownText, plural: plural, sortItems: sortItems, validId: validId, appLink: appLink,
+    DICT: DICT, RTL: RTL, pickLang: pickLang, decodeDoc: decodeDoc, safeUrl: safeUrl, formatPrice: formatPrice, daysUntil: daysUntil,
+    countdownText: countdownText, plural: plural, pluralCat: pluralCat, summaryText: summaryText, formatDate: formatDate, t: t,
+    sortItems: sortItems, validId: validId, appLink: appLink,
     loadList: loadList, reserveItem: reserveItem, releaseItem: releaseItem, getToken: getToken, myUid: myUid, store: store,
-    setLang: function (l) { LANG = l; LOCALE = l; D = DICT[l]; }
+    setLang: function (l, locale) { LANG = l; LOCALE = locale || l; D = DICT[l]; }
   };
   if (W.__CHEKLY_TEST__) { W.__CHEKLY_TEST__.api = api; return; }
 
@@ -407,7 +810,18 @@
   var doc = W.document;
   var app = doc.getElementById('app');
   doc.documentElement.lang = LANG;
-  doc.getElementById('f-made').textContent = t('made');
+  doc.documentElement.dir = RTL[LANG] ? 'rtl' : 'ltr';
+  doc.title = t('wishlist') + ' — Chekly';
+  var metaDesc = doc.querySelector('meta[name="description"]');
+  if (metaDesc) metaDesc.setAttribute('content', t('metaDesc'));
+  (function () {
+    var made = doc.getElementById('f-made'), appA = made.querySelector('a');
+    var parts = String(pk('made')).split('{app}');
+    made.textContent = '';
+    made.appendChild(doc.createTextNode(parts[0] || ''));
+    made.appendChild(appA);
+    made.appendChild(doc.createTextNode(parts.slice(1).join('') || ''));
+  })();
   doc.getElementById('f-privacy').textContent = t('privacy');
 
   var listId = null;
@@ -472,12 +886,12 @@
     var taken = state.items.filter(function (i) { return !!i.reservedBy; }).length;
     var link = appLink(listId, nav.userAgent, nav.maxTouchPoints || 0);
     return h('header', null,
-      h('h1', { text: title }),
-      str(L.ownerName).trim() ? h('p', { class: 'owner muted', text: t('from', { name: str(L.ownerName).trim() }) }) : null,
+      h('h1', { text: iso(title) }),
+      str(L.ownerName).trim() ? h('p', { class: 'owner muted', text: t('from', { name: iso(str(L.ownerName).trim()) }) }) : null,
       ev,
-      str(L.note).trim() ? h('p', { class: 'note', text: str(L.note).trim() }) : null,
+      str(L.note).trim() ? h('p', { class: 'note', dir: 'auto', text: str(L.note).trim() }) : null,
       isOwnerView() ? h('p', { class: 'summary muted', text: t('ownList') })
-        : (state.items.length ? h('p', { class: 'summary muted', text: t('summary', { n: taken, total: state.items.length }) }) : null),
+        : (state.items.length ? h('p', { class: 'summary muted', text: summaryText(taken, state.items.length) }) : null),
       link ? h('a', { class: 'openapp', href: link, text: t('openApp') + ' ›' }) : null);
   }
 
@@ -499,7 +913,7 @@
 
     var actions = h('div', { class: 'actions' });
     if (state.nameFor === it.id && !taken && !mine) {
-      var input = h('input', { type: 'text', maxlength: '60', autocomplete: 'name', enterkeyhint: 'done', placeholder: t('namePh'), id: 'name-' + it.id });
+      var input = h('input', { type: 'text', dir: 'auto', maxlength: '60', autocomplete: 'name', enterkeyhint: 'done', placeholder: t('namePh'), id: 'name-' + it.id });
       input.value = state.nameDraft;
       input.addEventListener('input', function () { state.nameDraft = input.value; });
       input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitName(it.id); } if (e.key === 'Escape') closeName(); });
@@ -512,13 +926,13 @@
           h('button', { class: 'ghost', disabled: busy, onclick: closeName, text: t('close') }))));
       setTimeout(function () { try { input.focus(); } catch (e) {} }, 0);
     } else {
-      if (url) actions.appendChild(h('a', { class: 'shop', href: url, target: '_blank', rel: 'noopener noreferrer', text: t('open') + ' ↗' }));
+      if (url) actions.appendChild(h('a', { class: 'shop', href: url, target: '_blank', rel: 'noopener noreferrer', text: t('open') + (RTL[LANG] ? ' ↖' : ' ↗') }));
       if (mine) {
         actions.appendChild(h('span', { class: 'badge', text: '✓ ' + t('mine') }));
         actions.appendChild(h('button', { class: 'secondary', disabled: busy, onclick: function () { doRelease(it.id); }, text: busy ? '…' : t('cancel') }));
       } else if (taken) {
         var nm = str(it.reservedName).trim();
-        actions.appendChild(h('span', { class: 'badge', text: nm ? t('takenBy', { name: nm }) : t('taken') }));
+        actions.appendChild(h('span', { class: 'badge', text: nm ? t('takenBy', { name: iso(nm) }) : t('taken') }));
       } else if (!hide) {
         actions.appendChild(h('button', { class: 'primary', disabled: busy || !!state.busy, onclick: function () { startReserve(it.id); }, text: busy ? '…' : t('reserve') }));
       }
@@ -528,10 +942,10 @@
     return h('article', { class: 'item' + (taken ? ' taken' : '') + (mine ? ' mine' : '') },
       ph,
       h('div', { class: 'body' },
-        h('h3', { class: 'title', text: str(it.title).trim() || '—' }),
+        h('h3', { class: 'title', text: iso(str(it.title).trim() || '—') }),
         price ? h('div', { class: 'price', text: price }) : null,
-        store_ ? h('div', { class: 'meta', text: store_ }) : null,
-        str(it.note).trim() ? h('div', { class: 'inote', text: str(it.note).trim() }) : null,
+        store_ ? h('div', { class: 'meta', text: iso(store_) }) : null,
+        str(it.note).trim() ? h('div', { class: 'inote', dir: 'auto', text: str(it.note).trim() }) : null,
         actions));
   }
 
